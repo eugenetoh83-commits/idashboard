@@ -1,3 +1,37 @@
+/* Sparkle effect */
+.dashboard-sparkle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Node image */
+.dashboard-node-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+/* Node hover text */
+.dashboard-node-hover-text {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  background: rgba(30,30,30,0.85);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 20;
+}
+@import url('https://fonts.googleapis.com/css?family=Dosis:600,800');
+
 * {
     margin: 0;
     padding: 0;
@@ -38,8 +72,11 @@ body {
     user-select: none;
     will-change: transform;
     border: 2px solid #fff;
+    position: absolute;
+    z-index: 2;
 }
 .dashboard-node:hover {
     box-shadow: 0 0 40px #2d8cffcc;
     background: rgba(45,140,255,0.18);
 }
+
