@@ -21,48 +21,111 @@ const connections = [
 
 
 function Dashboard() {
-  const nodeRefs = React.useRef([]);
-  const [hovered, setHovered] = React.useState(Array(nodesData.length).fill(false));
-  const [activeIdx, setActiveIdx] = React.useState(null);
+  const cyRef = React.useRef(null);
+  const [hoveredNode, setHoveredNode] = React.useState(null);
+  const [nodeScreenPositions, setNodeScreenPositions] = React.useState([]);
   const [sparkles, setSparkles] = React.useState([]);
   const sparkleId = React.useRef(0);
-
-  // Animate node scale on hover
-  const handleMouseEnter = (idx) => {
-    setHovered(h => h.map((v, i) => i === idx ? true : v));
-    setActiveIdx(idx);
-    anime({
-      targets: nodeRefs.current[idx],
-      scale: 1.2,
-      duration: 400,
-      easing: 'easeOutElastic(1, .8)'
-    });
-  };
-  const handleMouseLeave = (idx) => {
-    setHovered(h => h.map((v, i) => i === idx ? false : v));
-    setActiveIdx(null);
-    anime({
-      targets: nodeRefs.current[idx],
-      scale: 1,
-      duration: 400,
-      easing: 'easeOutElastic(1, .8)'
-    });
-  };
-
-
-  // Sparkle effect on mouse move (throttled and with random offset)
   const lastSparkle = React.useRef(0);
-  const SPARKLE_THROTTLE = 60; // ms between sparkles
+  const SPARKLE_THROTTLE = 60;
+
+  React.useEffect(() => {
+    if (!window.cytoscape) return;
+    // Prepare Cytoscape elements
+    const elements = [
+      ...nodesData.map((node, idx) => ({
+        data: { id: String(idx), label: node.label },
+        position: { x: node.x, y: node.y },
+        selectable: true,
+      })),
+      ...connections.map(([from, to]) => ({
+        data: { id: `e${from}-${to}`, source: String(from), target: String(to) }
+      }))
+    ];
+    const cy = window.cytoscape({
+      container: cyRef.current,
+      elements,
+      style: [
+        {
+          selector: 'node',
+          style: {
+            'background-opacity': 0,
+            'width': 20,
+            'height': 20,
+            'label': '', // Hide label always
+            'z-index': 2,
+            'transition-property': 'width height',
+            'transition-duration': '200ms',
+          }
+        },
+        {
+          selector: 'node:hover',
+          style: {
+            'width': 60,
+            'height': 60,
+          }
+        },
+        {
+          selector: 'edge',
+          style: {
+            'width': 2,
+            'line-color': '#fff',
+            'opacity': 0.5,
+            'z-index': 1,
+          }
+        }
+      ],
+      layout: { name: 'preset' },
+      userZoomingEnabled: false,
+      userPanningEnabled: true,
+      boxSelectionEnabled: false,
+    });
+    // Track node positions for overlay (no cy.project)
+    function updateNodeScreenPositions() {
+      // Convert graph coordinates to pixel coordinates inside cyRef
+      const cyRect = cyRef.current.getBoundingClientRect();
+      const pan = cy.pan();
+      const zoom = cy.zoom();
+      setNodeScreenPositions(cy.nodes().map(n => {
+        const pos = n.position();
+        // Cytoscape graph coordinates to pixel coordinates
+        const x = pos.x * zoom + pan.x;
+        const y = pos.y * zoom + pan.y;
+        return {
+          id: n.id(),
+          x,
+          y,
+          label: n.data('label'),
+        };
+      }));
+    }
+    cy.on('position', updateNodeScreenPositions);
+    cy.on('pan zoom', updateNodeScreenPositions);
+    cy.on('render', updateNodeScreenPositions);
+    updateNodeScreenPositions();
+    // Hover logic
+    cy.on('mouseover', 'node', evt => {
+      setHoveredNode(evt.target.id());
+    });
+    cy.on('mouseout', 'node', evt => {
+      setHoveredNode(null);
+    });
+    // Initial pan/zoom fit
+    cy.fit();
+    // Clean up
+    return () => { cy.destroy(); };
+  }, []);
+
   const handleMouseMove = (e) => {
     const now = Date.now();
     if (now - lastSparkle.current < SPARKLE_THROTTLE) return;
     lastSparkle.current = now;
     const dashboard = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - dashboard.left + (Math.random() - 0.5) * 128;
-    const y = e.clientY - dashboard.top + (Math.random() - 0.5) * 128;
+    const x = e.clientX - dashboard.left + (Math.random() - 0.5) * 64;
+    const y = e.clientY - dashboard.top + (Math.random() - 0.5) * 64;
     const id = sparkleId.current++;
-    const color = ["#fffbe6", "#ffe066", "#ffd700", "#fff"];
-    const size = 5 + Math.random() * 15; // random size between 10 and 28px
+    const color = ["#fffbe6", "#ffe066", "#ffd700", "#ffffff"];
+    const size = 5 + Math.random() * 15;
     setSparkles(sparkles => [
       ...sparkles,
       { id, x, y, color: color[Math.floor(Math.random()*color.length)], size }
@@ -72,105 +135,88 @@ function Dashboard() {
     }, 700);
   };
 
-  React.useEffect(() => {
-    // Animate sparkles
-    sparkles.forEach(sparkle => {
-      anime({
-        targets: `#sparkle-${sparkle.id}`,
-        scale: [0.7, 1.4],
-        opacity: [1, 0],
-        rotate: [0, 90 + Math.random()*180],
-        duration: 700,
-        easing: 'easeOutCubic'
-      });
-    });
-  }, [sparkles]);
-
-  // Calculate SVG lines between node borders
-  const r = 40; // node radius
-  function getBorderPoint(x1, y1, x2, y2, r) {
-    // Returns the point on the border of the circle at (x1, y1) towards (x2, y2)
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.sqrt(dx*dx + dy*dy);
-    if (len === 0) return {x: x1, y: y1};
-    return {
-      x: x1 + (dx * r) / len,
-      y: y1 + (dy * r) / len
-    };
-  }
-
-  const lines = connections.map(([fromIdx, toIdx], i) => {
-    const from = nodesData[fromIdx];
-    const to = nodesData[toIdx];
-    // Center points
-    const fromCenter = { x: from.x + r, y: from.y + r };
-    const toCenter = { x: to.x + r, y: to.y + r };
-    // Border points
-    const fromBorder = getBorderPoint(fromCenter.x, fromCenter.y, toCenter.x, toCenter.y, r);
-    const toBorder = getBorderPoint(toCenter.x, toCenter.y, fromCenter.x, fromCenter.y, r);
-    return (
-      <line
-        key={i}
-        x1={fromBorder.x}
-        y1={fromBorder.y}
-        x2={toBorder.x}
-        y2={toBorder.y}
-        stroke="#fff"
-        strokeWidth="2"
-        opacity="0.5"
-      />
-    );
-  });
-
   return (
     <div>
       <div
         className="dashboard-bg"
-        style={{ position: 'relative', width: 700, height: 500, margin: '0 auto' }}
+        style={{ position: 'relative', width: '100vw', height: '100vh', minHeight: 320 }}
         onMouseMove={handleMouseMove}
       >
-        <svg width="700" height="500" style={{position:'absolute', left:0, top:0, pointerEvents:'none', zIndex:1}}>
-          {lines}
-        </svg>
-        {nodesData.map((node, idx) => (
-          <div
-            key={idx}
-            ref={el => nodeRefs.current[idx] = el}
-            className="dashboard-node"
-            style={{ left: node.x, top: node.y }}
-            onMouseEnter={() => handleMouseEnter(idx)}
-            onMouseLeave={() => handleMouseLeave(idx)}
-          >
-            <img
-              src={hovered[idx] ? node.gifIcon : node.staticIcon}
-              alt={node.label}
-              className="dashboard-node-img"
-            />
-            {hovered[idx] && (
-              <div className="dashboard-node-hover-text">
-                {`Placeholder for node ${node.label}`}
-              </div>
-            )}
-          </div>
-        ))}
+        <div ref={cyRef} style={{ width: '100%', height: '100%' }} />
+        {/* Overlay animated GIFs on nodes, positioned using cy.project() */}
+        {nodeScreenPositions.map(node => {
+          const nodeData = nodesData[parseInt(node.id)];
+          const isHovered = hoveredNode === node.id;
+          const size = isHovered ? 110 : 80;
+          return (
+            <div
+              key={node.id}
+              style={{
+                position: 'absolute',
+                left: node.x - size / 2,
+                top: node.y - size / 2,
+                width: size,
+                height: size + (isHovered ? 32 : 0),
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                pointerEvents: 'none',
+                zIndex: 3,
+              }}
+            >
+              <img
+                src={isHovered ? nodeData.gifIcon : nodeData.staticIcon}
+                alt={node.label}
+                style={{
+                  width: size,
+                  height: size,
+                  borderRadius: '50%',
+                  border: '2px solid #fff',
+                  background: 'rgba(255,255,255,0.08)',
+                  boxShadow: isHovered ? '0 0 40px #2d8cffcc' : '0 0 20px #2d8cff55',
+                  transition: 'box-shadow 0.3s, background 0.3s, width 0.2s, height 0.2s',
+                }}
+              />
+              {isHovered && (
+                <span
+                  style={{
+                    marginTop: 4,
+                    color: '#00ffe7',
+                    fontSize: 22,
+                    fontFamily: 'Roboto Condensed, sans-serif',
+                    textShadow: '0 0 8px #222, 0 0 2px #00ffe7',
+                    letterSpacing: 2,
+                    fontWeight: 700,
+                    background: 'rgba(0,0,0,0.5)',
+                    borderRadius: 8,
+                    padding: '2px 12px',
+                  }}
+                >
+                  {node.label}
+                </span>
+              )}
+            </div>
+          );
+        })}
         {sparkles.map(sparkle => (
           <div
             key={sparkle.id}
-            id={`sparkle-${sparkle.id}`}
             className="dashboard-sparkle"
             style={{
+              position: 'absolute',
               left: sparkle.x - sparkle.size / 2,
               top: sparkle.y - sparkle.size / 2,
               width: sparkle.size,
               height: sparkle.size,
               background: sparkle.color,
               boxShadow: `0 0 8px 2px ${sparkle.color}`,
+              borderRadius: '50%',
+              pointerEvents: 'none',
+              zIndex: 10,
             }}
           />
         ))}
       </div>
-      {/* Removed bottom placeholder text */}
     </div>
   );
 }
