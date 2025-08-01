@@ -5,13 +5,13 @@
 
 
 const nodesData = [
-  { label: "A", x: 100, y: 100, staticIcon: "img/icons8-alert.png", gifIcon: "img/icons8-alert.gif" },
+  { label: "A", x: 120, y: 120, staticIcon: "img/icons8-alert.png", gifIcon: "img/icons8-alert.gif" },
   { label: "B", x: 300, y: 60, staticIcon: "img/icons8-connection.png", gifIcon: "img/icons8-connection.gif" },
   { label: "C", x: 500, y: 120, staticIcon: "img/icons8-document.png", gifIcon: "img/icons8-document.gif" },
-  { label: "D", x: 420, y: 320, staticIcon: "img/icons8-home.png", gifIcon: "img/icons8-home.gif" },
-  { label: "E", x: 200, y: 350, staticIcon: "img/icons8-lock.png", gifIcon: "img/icons8-lock.gif" },
+  { label: "D", x: 420, y: 200, staticIcon: "img/icons8-home.png", gifIcon: "img/icons8-home.gif" },
+  { label: "E", x: 410, y: 280, staticIcon: "img/icons8-lock.png", gifIcon: "img/icons8-lock.gif" },
   { label: "F", x: 80, y: 250, staticIcon: "img/icons8-rain-cloud.png", gifIcon: "img/icons8-rain-cloud.gif" },
-  { label: "G", x: 320, y: 220, staticIcon: "img/icons8-learning.png", gifIcon: "img/icons8-learning.gif" }
+  { label: "G", x: 260, y: 190, staticIcon: "img/icons8-learning.png", gifIcon: "img/icons8-learning.gif" }
 ];
 
 // Irregular connections (edges)
@@ -20,22 +20,48 @@ const connections = [
 ];
 
 
+// Helper: get responsive node size
+function getResponsiveNodeSize(isHovered) {
+  const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+  // Clamp between 48 and 120px
+  const base = Math.max(48, Math.min(0.09 * vw, 80));
+  return isHovered ? base * 1.35 : base;
+}
+
 function Dashboard() {
   const cyRef = React.useRef(null);
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const [nodeScreenPositions, setNodeScreenPositions] = React.useState([]);
   const [sparkles, setSparkles] = React.useState([]);
+  const [viewport, setViewport] = React.useState({ width: window.innerWidth, height: window.innerHeight });
   const sparkleId = React.useRef(0);
   const lastSparkle = React.useRef(0);
   const SPARKLE_THROTTLE = 60;
 
+  // Responsive: update viewport on resize
+  React.useEffect(() => {
+    function handleResize() {
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   React.useEffect(() => {
     if (!window.cytoscape) return;
-    // Prepare Cytoscape elements
+    // Responsive: scale node positions to viewport with 5% padding on all sides
+    const w = 600, h = 400; // base design size
+    const padX = 0.05 * viewport.width;
+    const padY = 0.05 * viewport.height;
+    const scaleX = (viewport.width - 2 * padX) / w;
+    const scaleY = (viewport.height - 2 * padY) / h;
     const elements = [
       ...nodesData.map((node, idx) => ({
         data: { id: String(idx), label: node.label },
-        position: { x: node.x, y: node.y },
+        position: {
+          x: padX + node.x * scaleX,
+          y: padY + node.y * scaleY
+        },
         selectable: true,
       })),
       ...connections.map(([from, to]) => ({
@@ -45,7 +71,7 @@ function Dashboard() {
     const cy = window.cytoscape({
       container: cyRef.current,
       elements,
-        style: [
+      style: [
         {
           selector: 'node',
           style: {
@@ -70,8 +96,9 @@ function Dashboard() {
       ],
       layout: { name: 'preset' },
       userZoomingEnabled: false,
-      userPanningEnabled: true,
+      userPanningEnabled: true, // Disable panning/dragging
       boxSelectionEnabled: false,
+      autoungrabify: true, // Prevent node dragging
     });
     // Track node positions for overlay (no cy.project)
     function updateNodeScreenPositions() {
@@ -96,18 +123,12 @@ function Dashboard() {
     cy.on('pan zoom', updateNodeScreenPositions);
     cy.on('render', updateNodeScreenPositions);
     updateNodeScreenPositions();
-    // Hover logic
-    cy.on('mouseover', 'node', evt => {
-      setHoveredNode(evt.target.id());
-    });
-    cy.on('mouseout', 'node', evt => {
-      setHoveredNode(null);
-    });
-    // Initial pan/zoom fit
-    cy.fit();
+    // Initial pan/zoom fit with 5% margin
+    const fitPadding = Math.floor(Math.min(viewport.width, viewport.height) * 0.20);
+    cy.fit(undefined, fitPadding);
     // Clean up
     return () => { cy.destroy(); };
-  }, []);
+  }, [viewport]);
 
   const handleMouseMove = (e) => {
     const now = Date.now();
@@ -140,22 +161,26 @@ function Dashboard() {
         {nodeScreenPositions.map(node => {
           const nodeData = nodesData[parseInt(node.id)];
           const isHovered = hoveredNode === node.id;
-          const size = isHovered ? 110 : 80;
+          const size = getResponsiveNodeSize(isHovered);
+          const left = node.x - size / 2;
+          const top = node.y - size / 2;
           // Use window.AnimatedBorder for UMD/Babel
           const AnimatedBorder = window.AnimatedBorder;
           return (
             <div
               key={node.id}
+              onMouseEnter={() => setHoveredNode(node.id)}
+              onMouseLeave={() => setHoveredNode(null)}
               style={{
                 position: 'absolute',
-                left: node.x - size / 2,
-                top: node.y - size / 2,
+                left,
+                top,
                 width: size,
                 height: size + (isHovered ? 32 : 0),
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                pointerEvents: 'none',
+                pointerEvents: 'auto', // Allow mouse events
                 zIndex: 3,
               }}
             >
@@ -168,8 +193,6 @@ function Dashboard() {
                   width: size,
                   height: size,
                   borderRadius: '50%',
-                  border: '2px solid #fff',
-                  background: 'rgba(255,255,255,0.08)',
                   boxShadow: isHovered ? '0 0 40px #2d8cffcc' : '0 0 20px #2d8cff55',
                   transition: 'box-shadow 0.3s, background 0.3s, width 0.2s, height 0.2s',
                 }}
@@ -218,5 +241,16 @@ function Dashboard() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
+const HexagonBackground = window.HexagonBackground;
+
+function App() {
+  return (
+    <div>
+      {HexagonBackground && <HexagonBackground />}
+      <Dashboard />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 

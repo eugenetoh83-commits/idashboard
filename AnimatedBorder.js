@@ -39,9 +39,9 @@ window.AnimatedBorder = function AnimatedBorder(props) {
       zIndex: 4,
       willChange: 'background',
       background: isHovered
-        ? 'conic-gradient(from var(--border-rotate, 0deg), #00ffe7 0deg, #00ffe7 90deg, #fff 180deg, #00ffe7 270deg, #00ffe7 360deg)'
+        ? 'conic-gradient(from var(--border-rotate, 0deg), #00b4d8 0deg, #4a00e0 90deg, #1a1a2e 180deg, #16213e 270deg, #232946 360deg)'
         : 'none',
-      border: isHovered ? '4px solid transparent' : '2px solid #fff',
+      /*border: isHovered ? '4px solid transparent' : '2px solid #fff',*/
       transition: 'border 1.5s',
       // Mask out the center to create a ring effect
       WebkitMaskImage: isHovered
