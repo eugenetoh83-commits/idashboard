@@ -45,7 +45,7 @@ function Dashboard() {
     const cy = window.cytoscape({
       container: cyRef.current,
       elements,
-      style: [
+        style: [
         {
           selector: 'node',
           style: {
@@ -56,13 +56,6 @@ function Dashboard() {
             'z-index': 2,
             'transition-property': 'width height',
             'transition-duration': '200ms',
-          }
-        },
-        {
-          selector: 'node:hover',
-          style: {
-            'width': 60,
-            'height': 60,
           }
         },
         {
@@ -148,6 +141,8 @@ function Dashboard() {
           const nodeData = nodesData[parseInt(node.id)];
           const isHovered = hoveredNode === node.id;
           const size = isHovered ? 110 : 80;
+          // Use window.AnimatedBorder for UMD/Babel
+          const AnimatedBorder = window.AnimatedBorder;
           return (
             <div
               key={node.id}
@@ -164,6 +159,8 @@ function Dashboard() {
                 zIndex: 3,
               }}
             >
+              {/* Animated border overlay */}
+              {AnimatedBorder && <AnimatedBorder isHovered={isHovered} size={size} />}
               <img
                 src={isHovered ? nodeData.gifIcon : nodeData.staticIcon}
                 alt={node.label}
