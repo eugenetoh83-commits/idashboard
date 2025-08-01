@@ -1,29 +1,37 @@
-// Minimal, working React + anime.js dashboard with interactive nodes
-
-
-// Irregular node positions and labels
-
-
-const nodesData = [
-  { label: "A", x: 120, y: 120, staticIcon: "img/icons8-alert.png", gifIcon: "img/icons8-alert.gif" },
-  { label: "B", x: 300, y: 60, staticIcon: "img/icons8-connection.png", gifIcon: "img/icons8-connection.gif" },
-  { label: "C", x: 500, y: 120, staticIcon: "img/icons8-document.png", gifIcon: "img/icons8-document.gif" },
-  { label: "D", x: 420, y: 200, staticIcon: "img/icons8-home.png", gifIcon: "img/icons8-home.gif" },
-  { label: "E", x: 410, y: 280, staticIcon: "img/icons8-lock.png", gifIcon: "img/icons8-lock.gif" },
-  { label: "F", x: 80, y: 250, staticIcon: "img/icons8-rain-cloud.png", gifIcon: "img/icons8-rain-cloud.gif" },
-  { label: "G", x: 260, y: 190, staticIcon: "img/icons8-learning.png", gifIcon: "img/icons8-learning.gif" }
+// React + anime.js dashboard with interactive nodes
+// Nodes are equally spaced on a circle, fixed order, no randomization
+const baseNodes = [
+  { label: "A", staticIcon: "img/icons8-alert.png", gifIcon: "img/icons8-alert.gif" },
+  { label: "B", staticIcon: "img/icons8-connection.png", gifIcon: "img/icons8-connection.gif" },
+  { label: "C", staticIcon: "img/icons8-document.png", gifIcon: "img/icons8-document.gif" },
+  { label: "D", staticIcon: "img/icons8-home.png", gifIcon: "img/icons8-home.gif" },
+  { label: "E", staticIcon: "img/icons8-lock.png", gifIcon: "img/icons8-lock.gif" },
+  { label: "F", staticIcon: "img/icons8-rain-cloud.png", gifIcon: "img/icons8-rain-cloud.gif" },
+  { label: "G", staticIcon: "img/icons8-learning.png", gifIcon: "img/icons8-learning.gif" }
 ];
+function getCircleNodes(radius = 200, centerX = 300, centerY = 200) {
+  const n = baseNodes.length;
+  return baseNodes.map((node, i) => {
+    const angle = (2 * Math.PI * i) / n;
+    return {
+      ...node,
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle)
+    };
+  });
+}
+const nodesData = getCircleNodes();
 
-// Irregular connections (edges)
+// Graph connections (edges)
 const connections = [
   [0,1],[2,3],[3,4],[5,0],[1,6],[6,3]
 ];
 
 
-// Helper: get responsive node size
+// Responsive node size helper
 function getResponsiveNodeSize(isHovered) {
   const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-  // Clamp between 48 and 120px
+  // Clamp between 48 and 80px
   const base = Math.max(48, Math.min(0.09 * vw, 80));
   return isHovered ? base * 1.35 : base;
 }
@@ -96,7 +104,7 @@ function Dashboard() {
       ],
       layout: { name: 'preset' },
       userZoomingEnabled: false,
-      userPanningEnabled: true, // Disable panning/dragging
+      userPanningEnabled: false, // Disable panning/dragging
       boxSelectionEnabled: false,
       autoungrabify: true, // Prevent node dragging
     });
@@ -149,6 +157,55 @@ function Dashboard() {
     }, 700);
   };
 
+  // Animated edge overlay using SVG and anime.js
+  const svgRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!svgRef.current) return;
+    let animeInstance;
+    const animate = () => {
+      const lines = svgRef.current.querySelectorAll('.animated-edge');
+      lines.forEach(line => {
+        // Animate stroke-dashoffset for moving effect
+        const length = line.getTotalLength();
+        line.style.strokeDasharray = length;
+        line.style.strokeDashoffset = parseFloat(line.style.strokeDashoffset || 0);
+      });
+      animeInstance = window.anime({
+        targets: svgRef.current.querySelectorAll('.animated-edge'),
+        strokeDashoffset: [0, -200],
+        duration: 900,
+        easing: 'linear',
+        loop: true,
+        direction: 'normal',
+      });
+    };
+    animate();
+    return () => { if (animeInstance) animeInstance.pause(); };
+  }, [nodeScreenPositions]);
+
+  // Calculate edge lines for overlay
+  const edgeLines = connections.map(([from, to], i) => {
+    const n1 = nodeScreenPositions.find(n => n.id === String(from));
+    const n2 = nodeScreenPositions.find(n => n.id === String(to));
+    if (!n1 || !n2) return null;
+    return (
+      <line
+        key={i}
+        className="animated-edge"
+        x1={n1.x}
+        y1={n1.y}
+        x2={n2.x}
+        y2={n2.y}
+        stroke="#4a00e0"
+        strokeWidth="10"
+        strokeDasharray="16 16"
+        strokeDashoffset="0"
+        opacity="0.7"
+        style={{ filter: 'drop-shadow(0 0 8px #4a00e0)' }}
+      />
+    );
+  });
+
   return (
     <div>
       <div
@@ -156,8 +213,17 @@ function Dashboard() {
         style={{ position: 'relative', width: '100vw', height: '100vh', minHeight: 320 }}
         onMouseMove={handleMouseMove}
       >
+        {/* Animated SVG edge overlay */}
+        <svg
+          ref={svgRef}
+          width={viewport.width}
+          height={viewport.height}
+          style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 2 }}
+        >
+          {edgeLines}
+        </svg>
         <div ref={cyRef} style={{ width: '100%', height: '100%' }} />
-        {/* Overlay animated GIFs on nodes, positioned using cy.project() */}
+        {/* Overlay animated GIFs on nodes */}
         {nodeScreenPositions.map(node => {
           const nodeData = nodesData[parseInt(node.id)];
           const isHovered = hoveredNode === node.id;
@@ -229,9 +295,9 @@ function Dashboard() {
               width: sparkle.size,
               height: sparkle.size,
               background: sparkle.color,
-              boxShadow: `0 0 8px 2px ${sparkle.color}`,
               borderRadius: '50%',
               pointerEvents: 'none',
+              boxShadow: `0 0 ${sparkle.size * 2}px ${sparkle.size / 2}px ${sparkle.color}`,
               zIndex: 10,
             }}
           />
@@ -243,11 +309,60 @@ function Dashboard() {
 
 const HexagonBackground = window.HexagonBackground;
 
+function ThemeToggle({ theme, setTheme }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      right: 24,
+      bottom: 24,
+      zIndex: 100,
+      background: theme === 'dark' ? 'rgba(30,32,40,0.95)' : 'rgba(255,255,255,0.95)',
+      color: theme === 'dark' ? '#fff' : '#222',
+      borderRadius: 16,
+      boxShadow: '0 2px 16px #0002',
+      padding: '12px 24px',
+      display: 'flex',
+      alignItems: 'center',
+      fontFamily: 'Roboto Condensed, sans-serif',
+      fontWeight: 700,
+      fontSize: 18,
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'background 0.3s, color 0.3s',
+    }}
+      onClick={() => {
+        const next = theme === 'dark' ? 'light' : 'dark';
+        setTheme(next);
+        localStorage.setItem('theme', next);
+      }}
+      title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+    >
+      {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
+    </div>
+  );
+}
+
 function App() {
+  const [theme, setTheme] = React.useState(() => {
+    // Check localStorage for theme
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+    }
+    return 'dark';
+  });
+
+  React.useEffect(() => {
+    // Set body class for theme
+    document.body.classList.toggle('light-theme', theme === 'light');
+    document.body.classList.toggle('dark-theme', theme === 'dark');
+  }, [theme]);
+
   return (
     <div>
-      {HexagonBackground && <HexagonBackground />}
       <Dashboard />
+      {HexagonBackground && <HexagonBackground />}
+      <ThemeToggle theme={theme} setTheme={setTheme} />
     </div>
   );
 }

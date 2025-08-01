@@ -1,20 +1,41 @@
 // HexagonBackgroundCanvas.js
 // Animated, interactive hexagonal grid background using anime.js and React, rendered on a <canvas>
-const HEX_COLORS = ['#4a00e0', '#00b4d8', '#e94560', '#f9d923', '#00ffb4', '#ff2e63'];
-const DARK_COLORS = ['#1a1a2e', '#16213e', '#232946'];
-
-function randomColor() {
-  return HEX_COLORS[Math.floor(Math.random() * HEX_COLORS.length)];
-}
 
 function HexagonBackgroundCanvas() {
+  const DARK_HEX_COLORS = ['#121212', '#6d597a', '#35524a'];
+  const DARK_BG_COLORS = ['#1a1a2e'];
+  const LIGHT_HEX_COLORS = ['#B85042', '#E7E8D1', '#A7BEAE'];
+  const LIGHT_BG_COLORS = ['#E7E8D1', '#A7BEAE', '#fff'];
+
+  function randomColor(theme) {
+    const colors = theme === 'light' ? LIGHT_HEX_COLORS : DARK_HEX_COLORS;
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
   const canvasRef = React.useRef();
   const [dimensions, setDimensions] = React.useState({ width: window.innerWidth, height: window.innerHeight });
   const [hexes, setHexes] = React.useState([]);
-  const [bgColor, setBgColor] = React.useState(DARK_COLORS[0]);
-  const size = 40;
+  const [bgColor, setBgColor] = React.useState(DARK_BG_COLORS[0]);
+  const [theme, setTheme] = React.useState(() => {
+    if (typeof document !== 'undefined') {
+      return document.body.classList.contains('light-theme') ? 'light' : 'dark';
+    }
+    return 'dark';
+  });
+  const size = window.innerWidth * 0.01;
   const w = size * Math.sqrt(3);
   const h = size * 1.5;
+
+  // Listen for theme changes
+  React.useEffect(() => {
+    function updateTheme() {
+      setTheme(document.body.classList.contains('light-theme') ? 'light' : 'dark');
+    }
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Generate grid on mount/resize
   React.useEffect(() => {
@@ -29,6 +50,7 @@ function HexagonBackgroundCanvas() {
     const cols = Math.ceil(dimensions.width / w) + 2;
     const rows = Math.ceil(dimensions.height / h) + 2;
     const hexArray = [];
+    const colorArray = theme === 'light' ? LIGHT_HEX_COLORS : DARK_HEX_COLORS;
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const x = col * w + ((row % 2) * w) / 2;
@@ -37,13 +59,13 @@ function HexagonBackgroundCanvas() {
           id: row + '-' + col,
           cx: x,
           cy: y,
-          color: DARK_COLORS[(row + col) % DARK_COLORS.length],
+          color: colorArray[(row + col) % colorArray.length],
           pulse: Math.random() * Math.PI * 2,
         });
       }
     }
     setHexes(hexArray);
-  }, [dimensions]);
+  }, [dimensions, theme]);
 
   // Animation loop
   React.useEffect(() => {
@@ -51,7 +73,9 @@ function HexagonBackgroundCanvas() {
     function draw() {
       const ctx = canvasRef.current.getContext('2d');
       ctx.clearRect(0, 0, dimensions.width, dimensions.height);
-      ctx.fillStyle = bgColor;
+      // Set background color based on theme
+      const bgArr = theme === 'light' ? LIGHT_BG_COLORS : DARK_BG_COLORS;
+      ctx.fillStyle = bgArr[0];
       ctx.fillRect(0, 0, dimensions.width, dimensions.height);
       const now = performance.now();
       for (let i = 0; i < hexes.length; i++) {
@@ -64,7 +88,7 @@ function HexagonBackgroundCanvas() {
     }
     if (canvasRef.current) draw();
     return () => { running = false; };
-  }, [hexes, dimensions, bgColor]);
+  }, [hexes, dimensions, theme]);
 
   // Draw a single hexagon
   function drawHex(ctx, cx, cy, size, color, opacity) {
@@ -111,7 +135,7 @@ function HexagonBackgroundCanvas() {
         visited.add(currentIdx);
         newHexes[currentIdx] = {
           ...newHexes[currentIdx],
-          color: randomColor(),
+          color: randomColor(theme),
         };
         // Find neighbors
         const { cx, cy } = newHexes[currentIdx];
@@ -128,7 +152,8 @@ function HexagonBackgroundCanvas() {
       setHexes(newHexes);
     } else {
       // Animate background color
-      const newColor = DARK_COLORS[Math.floor(Math.random() * DARK_COLORS.length)];
+      const bgArr = theme === 'light' ? LIGHT_BG_COLORS : DARK_BG_COLORS;
+      const newColor = bgArr[Math.floor(Math.random() * bgArr.length)];
       window.anime({
         targets: {}, // dummy
         duration: 800,
