@@ -157,54 +157,154 @@ function Dashboard() {
     }, 700);
   };
 
-  // Animated edge overlay using SVG and anime.js
-  const svgRef = React.useRef(null);
-  React.useEffect(() => {
-    if (!svgRef.current) return;
-    let animeInstance;
-    const animate = () => {
-      const lines = svgRef.current.querySelectorAll('.animated-edge');
-      lines.forEach(line => {
-        // Animate stroke-dashoffset for moving effect
-        const length = line.getTotalLength();
-        line.style.strokeDasharray = length;
-        line.style.strokeDashoffset = parseFloat(line.style.strokeDashoffset || 0);
-      });
-      animeInstance = window.anime({
-        targets: svgRef.current.querySelectorAll('.animated-edge'),
-        strokeDashoffset: [0, -200],
-        duration: 900,
-        easing: 'linear',
-        loop: true,
-        direction: 'normal',
-      });
-    };
-    animate();
-    return () => { if (animeInstance) animeInstance.pause(); };
-  }, [nodeScreenPositions]);
 
-  // Calculate edge lines for overlay
-  const edgeLines = connections.map(([from, to], i) => {
-    const n1 = nodeScreenPositions.find(n => n.id === String(from));
-    const n2 = nodeScreenPositions.find(n => n.id === String(to));
-    if (!n1 || !n2) return null;
-    return (
-      <line
-        key={i}
-        className="animated-edge"
-        x1={n1.x}
-        y1={n1.y}
-        x2={n2.x}
-        y2={n2.y}
-        stroke="#4a00e0"
-        strokeWidth="10"
-        strokeDasharray="16 16"
-        strokeDashoffset="0"
-        opacity="0.7"
-        style={{ filter: 'drop-shadow(0 0 8px #4a00e0)' }}
-      />
-    );
+  // Animated traversing line overlay
+  const svgRef = React.useRef(null);
+  const [traverseT, setTraverseT] = React.useState(0);
+  const [theme, setTheme] = React.useState(() => {
+    if (typeof document !== 'undefined') {
+      return document.body.classList.contains('light-theme') ? 'light' : 'dark';
+    }
+    return 'dark';
   });
+
+  // Listen for theme changes
+  React.useEffect(() => {
+    function updateTheme() {
+      setTheme(document.body.classList.contains('light-theme') ? 'light' : 'dark');
+    }
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Animate traversing line
+  React.useEffect(() => {
+    let frame;
+    let t = 0;
+    function animate() {
+      t += 0.008; // speed
+      if (t > 1) t = 0;
+      setTraverseT(t);
+      frame = requestAnimationFrame(animate);
+    }
+    animate();
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  // Single animated indicator line with branching logic
+  // Graph: 0:A, 1:B, 2:C, 3:D, 4:E, 5:F, 6:G
+  // Edges: 0->1 (A->B), 0->5 (A->F), 1->6 (B->G), 2->3 (C->D), 3->4 (D->E), 6->3 (G->D)
+  // At each branch, randomly choose next path as per user rules
+  const labelToId = {A:0,B:1,C:2,D:3,E:4,F:5,G:6};
+  const idToLabel = ['A','B','C','D','E','F','G'];
+  // Adjacency list for directed edges
+  const adj = {
+    0: [1,5], // A: B or F
+    1: [6],   // B: G
+    2: [3],   // C: D
+    3: [4],   // D: E (but also can go to C or E from D via G)
+    4: [],    // E: end
+    5: [],    // F: end
+    6: [3],   // G: D
+  };
+  // Endpoints: F(5), C(2), E(4)
+  const ENDPOINTS = [5,2,4];
+
+  // State for the current path (array of node ids)
+  const [indicatorPath, setIndicatorPath] = React.useState([0]);
+  // State for progress along the current path (0=start, 1=end)
+  const [indicatorT, setIndicatorT] = React.useState(0);
+
+  // Helper to get node screen position by id
+  function posById(id) {
+    const n = nodeScreenPositions.find(n => n.id === String(id));
+    return n ? [n.x, n.y] : null;
+  }
+
+  // On mount or when node positions change, reset path to start at A
+  React.useEffect(() => {
+    setIndicatorPath([0]);
+    setIndicatorT(0);
+  }, [nodeScreenPositions.length]);
+
+  // Animation loop for indicator line
+  React.useEffect(() => {
+    let frame;
+    let t = indicatorT;
+    function animate() {
+      // If path is too short, wait for node positions
+      if (indicatorPath.length < 2) {
+        // Pick next node from current
+        const current = indicatorPath[indicatorPath.length-1];
+        const nexts = adj[current] || [];
+        if (nexts.length === 0) {
+          // At endpoint, restart at A
+          setIndicatorPath([0]);
+          setIndicatorT(0);
+          t = 0;
+        } else {
+          // Pick randomly if multiple
+          const next = nexts.length === 1 ? nexts[0] : nexts[Math.floor(Math.random()*nexts.length)];
+          setIndicatorPath([...indicatorPath, next]);
+        }
+        frame = requestAnimationFrame(animate);
+        return;
+      }
+      t += 0.012; // speed
+      if (t >= 1) {
+        // Arrived at next node, advance path
+        const current = indicatorPath[indicatorPath.length-1];
+        if (ENDPOINTS.includes(current)) {
+          // At endpoint, restart
+          setIndicatorPath([0]);
+          setIndicatorT(0);
+          t = 0;
+        } else {
+          // Continue to next
+          const nexts = adj[current] || [];
+          if (nexts.length === 0) {
+            setIndicatorPath([0]);
+            setIndicatorT(0);
+            t = 0;
+          } else {
+            const next = nexts.length === 1 ? nexts[0] : nexts[Math.floor(Math.random()*nexts.length)];
+            setIndicatorPath([...indicatorPath.slice(-1), next]);
+            setIndicatorT(0);
+            t = 0;
+          }
+        }
+      } else {
+        setIndicatorT(t);
+      }
+      frame = requestAnimationFrame(animate);
+    }
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line
+  }, [indicatorPath, indicatorT, nodeScreenPositions.length]);
+
+  // Get the current segment (from last node to next)
+  let indicatorSegment = [];
+  if (indicatorPath.length >= 2) {
+    const from = posById(indicatorPath[indicatorPath.length-2]);
+    const to = posById(indicatorPath[indicatorPath.length-1]);
+    if (from && to) indicatorSegment = [from, to];
+  }
+
+  // Helper to interpolate along the segment
+  function getIndicatorPathD(segment, t) {
+    if (segment.length < 2) return '';
+    const [x1, y1] = segment[0];
+    const [x2, y2] = segment[1];
+    const x = x1 + (x2 - x1) * t;
+    const y = y1 + (y2 - y1) * t;
+    return `M${x1},${y1} L${x},${y}`;
+  }
+
+  const traverseColor = theme === 'light' ? '#3700b3' : '#f15bb5';
+
 
   return (
     <div>
@@ -213,14 +313,44 @@ function Dashboard() {
         style={{ position: 'relative', width: '100vw', height: '100vh', minHeight: 320 }}
         onMouseMove={handleMouseMove}
       >
-        {/* Animated SVG edge overlay */}
+        {/* Animated traversing line overlay */}
         <svg
           ref={svgRef}
           width={viewport.width}
           height={viewport.height}
           style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 2 }}
         >
-          {edgeLines}
+          {/* Static edges (thin) */}
+          {connections.map(([from, to], i) => {
+            const n1 = nodeScreenPositions.find(n => n.id === String(from));
+            const n2 = nodeScreenPositions.find(n => n.id === String(to));
+            if (!n1 || !n2) return null;
+            return (
+              <line
+                key={i}
+                x1={n1.x}
+                y1={n1.y}
+                x2={n2.x}
+                y2={n2.y}
+                stroke="#aaa"
+                strokeWidth="3"
+                opacity="0.5"
+              />
+            );
+          })}
+          {/* Single animated indicator line (data flow) */}
+          {indicatorSegment.length === 2 && (
+            <path
+              d={getIndicatorPathD(indicatorSegment, indicatorT)}
+              fill="none"
+              stroke={traverseColor}
+              strokeWidth="13"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.85"
+              style={{ filter: `drop-shadow(0 0 16px ${traverseColor})` }}
+            />
+          )}
         </svg>
         <div ref={cyRef} style={{ width: '100%', height: '100%' }} />
         {/* Overlay animated GIFs on nodes */}
