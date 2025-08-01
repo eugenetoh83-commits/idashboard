@@ -203,8 +203,8 @@ function Dashboard() {
   const adj = {
     0: [1,5], // A: B or F
     1: [6],   // B: G
-    2: [3],   // C: D
-    3: [4],   // D: E (but also can go to C or E from D via G)
+    2: [],   // C: End
+    3: [2,4],   // D: E (but also can go to C or E from D via G)
     4: [],    // E: end
     5: [],    // F: end
     6: [3],   // G: D
@@ -252,7 +252,7 @@ function Dashboard() {
         frame = requestAnimationFrame(animate);
         return;
       }
-      t += 0.012; // speed
+      t += 0.15; // speed
       if (t >= 1) {
         // Arrived at next node, advance path
         const current = indicatorPath[indicatorPath.length-1];
