@@ -96,9 +96,9 @@ function Dashboard({ backgroundType }) {
         {
           selector: 'edge',
           style: {
-            'width': 6,
-            'line-color': 'black',
-            'opacity': 1.0,
+            'width': 1,
+            'line-color': 'transparent',
+            'opacity': 0,
             'z-index': 1,
           }
         }
@@ -162,23 +162,6 @@ function Dashboard({ backgroundType }) {
   // Animated traversing line overlay
   const svgRef = React.useRef(null);
   const [traverseT, setTraverseT] = React.useState(0);
-  const [theme, setTheme] = React.useState(() => {
-    if (typeof document !== 'undefined') {
-      return document.body.classList.contains('light-theme') ? 'light' : 'dark';
-    }
-    return 'dark';
-  });
-
-  // Listen for theme changes
-  React.useEffect(() => {
-    function updateTheme() {
-      setTheme(document.body.classList.contains('light-theme') ? 'light' : 'dark');
-    }
-    updateTheme();
-    const observer = new MutationObserver(updateTheme);
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
 
   // Animate traversing line
   React.useEffect(() => {
@@ -304,7 +287,7 @@ function Dashboard({ backgroundType }) {
     return `M${x1},${y1} L${x},${y}`;
   }
 
-  const traverseColor = theme === 'light' ? '#43c3d4ff' : '#f15bb5';
+  const traverseColor = document.body.classList.contains('light-theme') ? '#43c3d4ff' : '#f15bb5';
 
 
   return (
@@ -333,9 +316,9 @@ function Dashboard({ backgroundType }) {
                 y1={n1.y}
                 x2={n2.x}
                 y2={n2.y}
-                stroke="#aaa"
-                strokeWidth="3"
-                opacity="0.5"
+                stroke="black"
+                strokeWidth="8"
+                opacity="0.8"
               />
             );
           })}
@@ -355,32 +338,20 @@ function Dashboard({ backgroundType }) {
         </svg>
         <div 
           ref={cyRef} 
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', height: '100%', pointerEvents: backgroundType === 'grid' ? 'none' : 'auto' }}
           onMouseDown={(e) => {
-            console.log('[CYTOSCAPE] Mouse down event intercepted:', e.type, e.clientX, e.clientY);
-            // Call appropriate background handlers based on current background type
             if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleCanvasClick) {
               console.log('[CYTOSCAPE] Calling hexagon background click handler directly');
               window.HexagonBackgroundHandlers.handleCanvasClick(e);
-            } else if (backgroundType === 'grid' && window.StaggeredGridBackgroundHandlers && window.StaggeredGridBackgroundHandlers.handleClick) {
-              console.log('[CYTOSCAPE] Calling grid background click handler directly');
-              window.StaggeredGridBackgroundHandlers.handleClick(e);
-            } else {
-              console.log('[CYTOSCAPE] Background handlers not available yet');
             }
+            // Skip grid handling entirely to prevent conflicts
           }}
           onClick={(e) => {
-            console.log('[CYTOSCAPE] Click event intercepted:', e.type, e.clientX, e.clientY);
-            // Call appropriate background handlers based on current background type
             if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleCanvasClick) {
               console.log('[CYTOSCAPE] Calling hexagon background click handler directly');
               window.HexagonBackgroundHandlers.handleCanvasClick(e);
-            } else if (backgroundType === 'grid' && window.StaggeredGridBackgroundHandlers && window.StaggeredGridBackgroundHandlers.handleClick) {
-              console.log('[CYTOSCAPE] Calling grid background click handler directly');
-              window.StaggeredGridBackgroundHandlers.handleClick(e);
-            } else {
-              console.log('[CYTOSCAPE] Background handlers not available yet');
             }
+            // Skip grid handling entirely to prevent conflicts
           }}
           onTouchStart={(e) => {
             console.log('[CYTOSCAPE] Touch start event intercepted:', e.type, e.touches.length);
@@ -568,8 +539,10 @@ function ThemeToggle({ theme, setTheme }) {
     }}
       onClick={() => {
         const next = theme === 'dark' ? 'light' : 'dark';
+        console.log('[THEME TOGGLE] Changing theme from', theme, 'to', next);
         setTheme(next);
         localStorage.setItem('theme', next);
+        console.log('[THEME TOGGLE] localStorage set to:', next);
       }}
       title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
     >
@@ -599,6 +572,7 @@ function App() {
 
   React.useEffect(() => {
     // Set body class for theme
+    console.log('[APP] Setting body classes for theme:', theme);
     document.body.classList.toggle('light-theme', theme === 'light');
     document.body.classList.toggle('dark-theme', theme === 'dark');
   }, [theme]);

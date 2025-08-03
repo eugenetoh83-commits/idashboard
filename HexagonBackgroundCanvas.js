@@ -15,12 +15,11 @@ function HexagonBackgroundCanvas() {
   const canvasRef = React.useRef();
   const [dimensions, setDimensions] = React.useState({ width: window.innerWidth, height: window.innerHeight });
   const [hexes, setHexes] = React.useState([]);
-  const [bgColor, setBgColor] = React.useState(DARK_BG_COLORS[0]);
   const [theme, setTheme] = React.useState(() => {
-    if (typeof document !== 'undefined') {
-      return document.body.classList.contains('light-theme') ? 'light' : 'dark';
-    }
-    return 'dark';
+    // Only check localStorage for initial theme
+    const stored = localStorage.getItem('theme');
+    console.log('[HEXAGON INIT] Initial theme from localStorage:', stored);
+    return stored === 'light' || stored === 'dark' ? stored : 'dark';
   });
   // Set hexagon size here (e.g., 70 for large, 30 for small)
   const size = 50;
@@ -30,12 +29,28 @@ function HexagonBackgroundCanvas() {
   // Listen for theme changes
   React.useEffect(() => {
     function updateTheme() {
-      setTheme(document.body.classList.contains('light-theme') ? 'light' : 'dark');
+      const stored = localStorage.getItem('theme');
+      console.log('[HEXAGON] Theme update triggered, localStorage value:', stored);
+      if (stored === 'light' || stored === 'dark') {
+        console.log('[HEXAGON] Setting theme to:', stored);
+        setTheme(stored);
+      }
     }
-    updateTheme();
-    const observer = new MutationObserver(updateTheme);
+    
+    // Only listen for body class changes (when theme toggle is clicked)
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          console.log('[HEXAGON] Body class changed, updating theme');
+          updateTheme();
+        }
+      });
+    });
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
+    
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   // Generate grid on mount/resize
@@ -180,20 +195,7 @@ function HexagonBackgroundCanvas() {
       setHexes(newHexes);
     } else {
       console.log('[HEXAGON CANVAS] No hex clicked or distance too far');
-      // Animate background color
-      const bgArr = theme === 'light' ? LIGHT_BG_COLORS : DARK_BG_COLORS;
-      const newColor = bgArr[Math.floor(Math.random() * bgArr.length)];
-      window.anime({
-        targets: {}, // dummy
-        duration: 800,
-        easing: 'easeInOutQuad',
-        update: function(anim) {
-          setBgColor(anim.progress < 100 ? bgColor : newColor);
-        },
-        complete: function() {
-          setBgColor(newColor);
-        }
-      });
+      // Just log the click, don't change background color
     }
   }
 
@@ -296,7 +298,7 @@ function HexagonBackgroundCanvas() {
       height: '100vh',
       zIndex: -1,
       display: 'block',
-      background: bgColor,
+      background: theme === 'light' ? LIGHT_BG_COLORS[0] : DARK_BG_COLORS[0],
       userSelect: 'none',
       touchAction: 'none',
       cursor: 'pointer',
