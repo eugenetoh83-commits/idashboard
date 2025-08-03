@@ -448,13 +448,17 @@ function Dashboard({ backgroundType, onSystemClick }) {
                 <span
                   style={{
                     marginTop: 4,
-                    color: '#00ffe7',
+                    color: document.body.classList.contains('light-theme') ? 'black' : 'white',
                     fontSize: 22,
                     fontFamily: 'Roboto Condensed, sans-serif',
-                    textShadow: '0 0 8px #222, 0 0 2px #00ffe7',
+                    textShadow: document.body.classList.contains('light-theme') 
+                      ? '0 0 8px rgba(255,255,255,0.8), 0 0 2px #1a73e8' 
+                      : '0 0 8px #222, 0 0 2px #00ffe7',
                     letterSpacing: 2,
                     fontWeight: 700,
-                    background: 'rgba(0,0,0,0.5)',
+                    background: document.body.classList.contains('light-theme') 
+                      ? 'rgba(255,255,255,0.9)' 
+                      : 'rgba(0,0,0,0.5)',
                     borderRadius: 8,
                     padding: '2px 12px',
                   }}
