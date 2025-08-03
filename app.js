@@ -36,7 +36,7 @@ function getResponsiveNodeSize(isHovered) {
   return isHovered ? base * 1.35 : base;
 }
 
-function Dashboard() {
+function Dashboard({ backgroundType }) {
   const cyRef = React.useRef(null);
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const [nodeScreenPositions, setNodeScreenPositions] = React.useState([]);
@@ -253,7 +253,7 @@ function Dashboard() {
         frame = requestAnimationFrame(animate);
         return;
       }
-      t += 0.15; // speed
+      t += 0.05; // speed
       if (t >= 1) {
         // Arrived at next node, advance path
         const current = indicatorPath[indicatorPath.length-1];
@@ -304,7 +304,7 @@ function Dashboard() {
     return `M${x1},${y1} L${x},${y}`;
   }
 
-  const traverseColor = theme === 'light' ? '#3700b3' : '#f15bb5';
+  const traverseColor = theme === 'light' ? '#43c3d4ff' : '#f15bb5';
 
 
   return (
@@ -358,60 +358,69 @@ function Dashboard() {
           style={{ width: '100%', height: '100%' }}
           onMouseDown={(e) => {
             console.log('[CYTOSCAPE] Mouse down event intercepted:', e.type, e.clientX, e.clientY);
-            // Call hexagon background handlers directly
-            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleCanvasClick) {
+            // Call appropriate background handlers based on current background type
+            if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleCanvasClick) {
               console.log('[CYTOSCAPE] Calling hexagon background click handler directly');
               window.HexagonBackgroundHandlers.handleCanvasClick(e);
+            } else if (backgroundType === 'grid' && window.StaggeredGridBackgroundHandlers && window.StaggeredGridBackgroundHandlers.handleClick) {
+              console.log('[CYTOSCAPE] Calling grid background click handler directly');
+              window.StaggeredGridBackgroundHandlers.handleClick(e);
             } else {
-              console.log('[CYTOSCAPE] HexagonBackgroundHandlers not available yet');
+              console.log('[CYTOSCAPE] Background handlers not available yet');
             }
           }}
           onClick={(e) => {
             console.log('[CYTOSCAPE] Click event intercepted:', e.type, e.clientX, e.clientY);
-            // Call hexagon background handlers directly
-            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleCanvasClick) {
+            // Call appropriate background handlers based on current background type
+            if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleCanvasClick) {
               console.log('[CYTOSCAPE] Calling hexagon background click handler directly');
               window.HexagonBackgroundHandlers.handleCanvasClick(e);
+            } else if (backgroundType === 'grid' && window.StaggeredGridBackgroundHandlers && window.StaggeredGridBackgroundHandlers.handleClick) {
+              console.log('[CYTOSCAPE] Calling grid background click handler directly');
+              window.StaggeredGridBackgroundHandlers.handleClick(e);
             } else {
-              console.log('[CYTOSCAPE] HexagonBackgroundHandlers not available yet');
+              console.log('[CYTOSCAPE] Background handlers not available yet');
             }
           }}
           onTouchStart={(e) => {
             console.log('[CYTOSCAPE] Touch start event intercepted:', e.type, e.touches.length);
-            // Call hexagon background handlers directly
-            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchStart) {
+            // Call appropriate background handlers based on current background type
+            if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchStart) {
               console.log('[CYTOSCAPE] Calling hexagon background touch handler directly');
               window.HexagonBackgroundHandlers.handleTouchStart(e);
+            } else if (backgroundType === 'grid' && window.StaggeredGridBackgroundHandlers && window.StaggeredGridBackgroundHandlers.handleTouchStart) {
+              console.log('[CYTOSCAPE] Calling grid background touch handler directly');
+              window.StaggeredGridBackgroundHandlers.handleTouchStart(e);
             } else {
-              console.log('[CYTOSCAPE] HexagonBackgroundHandlers not available yet');
+              console.log('[CYTOSCAPE] Background handlers not available yet');
             }
           }}
           onTouchEnd={(e) => {
             console.log('[CYTOSCAPE] Touch end event intercepted:', e.type);
-            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchEnd) {
+            if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchEnd) {
               window.HexagonBackgroundHandlers.handleTouchEnd(e);
             }
           }}
           onTouchMove={(e) => {
-            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchMove) {
+            if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchMove) {
               window.HexagonBackgroundHandlers.handleTouchMove(e);
             }
           }}
           onMouseMove={(e) => {
             // Only call occasionally to avoid spam
-            if (Math.random() < 0.005 && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseMove) {
+            if (Math.random() < 0.005 && backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseMove) {
               window.HexagonBackgroundHandlers.handleMouseMove(e);
             }
           }}
           onMouseEnter={(e) => {
             console.log('[CYTOSCAPE] Mouse enter event intercepted:', e.type);
-            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseEnter) {
+            if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseEnter) {
               window.HexagonBackgroundHandlers.handleMouseEnter(e);
             }
           }}
           onMouseLeave={(e) => {
             console.log('[CYTOSCAPE] Mouse leave event intercepted:', e.type);
-            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseLeave) {
+            if (backgroundType === 'hexagon' && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseLeave) {
               window.HexagonBackgroundHandlers.handleMouseLeave(e);
             }
           }}
@@ -501,6 +510,40 @@ function Dashboard() {
 }
 
 const HexagonBackground = window.HexagonBackground;
+const StaggeredGridBackground = window.StaggeredGridBackground;
+
+function BackgroundToggle({ backgroundType, setBackgroundType, theme }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      right: 24,
+      bottom: 80, // Position above theme toggle
+      zIndex: 100,
+      background: theme === 'dark' ? 'rgba(30,32,40,0.95)' : 'rgba(255,255,255,0.95)',
+      color: theme === 'dark' ? '#fff' : '#222',
+      borderRadius: 16,
+      boxShadow: '0 2px 16px #0002',
+      padding: '12px 24px',
+      display: 'flex',
+      alignItems: 'center',
+      fontFamily: 'Roboto Condensed, sans-serif',
+      fontWeight: 700,
+      fontSize: 18,
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'background 0.3s, color 0.3s',
+    }}
+      onClick={() => {
+        const next = backgroundType === 'hexagon' ? 'grid' : 'hexagon';
+        setBackgroundType(next);
+        localStorage.setItem('backgroundType', next);
+      }}
+      title={backgroundType === 'hexagon' ? 'Switch to grid background' : 'Switch to hexagon background'}
+    >
+      {backgroundType === 'hexagon' ? '⬡ Hexagon' : '⊞ Grid'}
+    </div>
+  );
+}
 
 function ThemeToggle({ theme, setTheme }) {
   return (
@@ -545,16 +588,40 @@ function App() {
     return 'dark';
   });
 
+  const [backgroundType, setBackgroundType] = React.useState(() => {
+    // Check localStorage for background type
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('backgroundType');
+      if (stored === 'hexagon' || stored === 'grid') return stored;
+    }
+    return 'hexagon'; // Default to hexagon background
+  });
+
   React.useEffect(() => {
     // Set body class for theme
     document.body.classList.toggle('light-theme', theme === 'light');
     document.body.classList.toggle('dark-theme', theme === 'dark');
   }, [theme]);
 
+  // Render the appropriate background component
+  const renderBackground = () => {
+    if (backgroundType === 'hexagon' && HexagonBackground) {
+      return React.createElement(HexagonBackground);
+    } else if (backgroundType === 'grid' && StaggeredGridBackground) {
+      return React.createElement(StaggeredGridBackground);
+    }
+    return null;
+  };
+
   return (
     <div>
-      <Dashboard />
-      {HexagonBackground && <HexagonBackground />}
+      <Dashboard backgroundType={backgroundType} />
+      {renderBackground()}
+      <BackgroundToggle 
+        backgroundType={backgroundType} 
+        setBackgroundType={setBackgroundType} 
+        theme={theme} 
+      />
       <ThemeToggle theme={theme} setTheme={setTheme} />
     </div>
   );

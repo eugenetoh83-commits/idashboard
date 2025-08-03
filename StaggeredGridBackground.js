@@ -9,8 +9,8 @@
     });
     const rows = Math.ceil(dimensions.height / cellSize);
     const cols = Math.ceil(dimensions.width / cellSize);
-    const bgColor = props.bgColor || '#181a20';
-    const dotColor = '#145050';
+    const bgColor = props.bgColor || '#dff0fe';
+    const dotColor = '#538ec7';
     const burstColor = '#252121ff';
     const canvasRef = React.useRef(null);
     const gridRef = React.useRef([]);
@@ -187,11 +187,21 @@
         const { x, y } = getXY(e);
         triggerRipple(x, y);
       }
+      
+      // Expose handlers globally for external triggering
+      window.StaggeredGridBackgroundHandlers = {
+        handlePointer,
+        triggerRipple: (x, y) => triggerRipple(x, y),
+        handleClick: handlePointer,
+        handleTouchStart: handlePointer
+      };
+      
       canvas.addEventListener('mousedown', handlePointer);
       canvas.addEventListener('touchstart', handlePointer, { passive: true });
       return () => {
         canvas.removeEventListener('mousedown', handlePointer);
         canvas.removeEventListener('touchstart', handlePointer);
+        delete window.StaggeredGridBackgroundHandlers;
       };
     }, []);
 

@@ -72,7 +72,9 @@ function HexagonBackgroundCanvas() {
   React.useEffect(() => {
     let running = true;
     function draw() {
+      if (!canvasRef.current) return; // Add null check
       const ctx = canvasRef.current.getContext('2d');
+      if (!ctx) return; // Add context check
       ctx.clearRect(0, 0, dimensions.width, dimensions.height);
       // Set background color based on theme
       const bgArr = theme === 'light' ? LIGHT_BG_COLORS : DARK_BG_COLORS;
@@ -128,6 +130,7 @@ function HexagonBackgroundCanvas() {
       timeStamp: e.timeStamp
     });
     
+    if (!canvasRef.current) return; // Add null check
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
