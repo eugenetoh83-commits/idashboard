@@ -4,7 +4,7 @@
 function HexagonBackgroundCanvas() {
   const DARK_HEX_COLORS = ['#121212', '#6d597a', '#35524a'];
   const DARK_BG_COLORS = ['#1a1a2e'];
-  const LIGHT_HEX_COLORS = ['#B85042', '#E7E8D1', '#A7BEAE'];
+  const LIGHT_HEX_COLORS = ['#538ec7', '#dff0fe', '#72a5d6'];
   const LIGHT_BG_COLORS = ['#E7E8D1', '#A7BEAE', '#fff'];
 
   function randomColor(theme) {
@@ -22,7 +22,8 @@ function HexagonBackgroundCanvas() {
     }
     return 'dark';
   });
-  const size = window.innerWidth * 0.01;
+  // Set hexagon size here (e.g., 70 for large, 30 for small)
+  const size = 50;
   const w = size * Math.sqrt(3);
   const h = size * 1.5;
 

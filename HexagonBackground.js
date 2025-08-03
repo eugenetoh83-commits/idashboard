@@ -20,6 +20,7 @@ function getHexPoints(size, cx, cy) {
 }
 
 function HexagonBackground() {
+  const size = 10; // <--- Move size here for global use
   const svgRef = React.useRef();
   const divRef = React.useRef();
   const [hexes, setHexes] = React.useState([]);
@@ -51,7 +52,6 @@ function HexagonBackground() {
 
   React.useEffect(() => {
     // Hexagon grid math
-    const size = 40;
     const w = size * Math.sqrt(3);
     const h = size * 1.5;
     const cols = Math.ceil(dimensions.width / w) + 2;
@@ -113,7 +113,8 @@ function HexagonBackground() {
         const dx = hexes[j].cx - cx;
         const dy = hexes[j].cy - cy;
         const distHex = Math.sqrt(dx * dx + dy * dy);
-        if (distHex < 75) {
+        // Use a threshold based on hex size for neighbor detection
+        if (distHex < size * 2) {
           queue.push([j, dist + 1]);
         }
       }
@@ -154,6 +155,12 @@ function HexagonBackground() {
     }
   }
 
+  // Use viewport size for SVG and grid
+  const w = size * Math.sqrt(3);
+  const h = size * 1.5;
+  const cols = Math.ceil(dimensions.width / w) + 2;
+  const rows = Math.ceil(dimensions.height / h) + 2;
+
   return React.createElement('div', {
     ref: divRef,
     style: {
@@ -163,14 +170,14 @@ function HexagonBackground() {
       width: '100vw',
       height: '100vh',
       zIndex: 0,
-      pointerEvents: 'all', // DEBUG: ensure all events pass
-      // opacity: 0.7, // Remove for debug
+      pointerEvents: 'all',
       background: bgColor,
       userSelect: 'none',
       touchAction: 'none',
       transition: 'background 0.5s',
-      border: '4px solid #ff2e63', // DEBUG: visible border
+      border: '4px solid #ff2e63',
       boxSizing: 'border-box',
+      overflow: 'hidden',
     },
     onClick: handleBackgroundClick
   },
@@ -178,10 +185,11 @@ function HexagonBackground() {
       ref: svgRef,
       width: dimensions.width,
       height: dimensions.height,
+      viewBox: `0 0 ${dimensions.width} ${dimensions.height}`,
       style: {
         width: '100vw',
         height: '100vh',
-        pointerEvents: 'none', // Let parent div receive clicks
+        pointerEvents: 'none',
         display: 'block',
       }
     },
@@ -189,13 +197,13 @@ function HexagonBackground() {
         React.createElement('polygon', {
           key: hex.id,
           id: `hex-${hex.id}`,
-          points: getHexPoints(40, hex.cx, hex.cy),
+          points: getHexPoints(size, hex.cx, hex.cy),
           fill: hex.color,
           style: {
             opacity: 0.85,
             cursor: 'pointer',
             transition: 'fill 0.5s',
-            pointerEvents: 'auto', // Only polygons receive pointer events
+            pointerEvents: 'auto',
           },
           onClick: (e) => handleHexClick(e, i),
           onTouchStart: (e) => handleHexClick(e, i),

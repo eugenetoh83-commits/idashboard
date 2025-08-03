@@ -1,13 +1,13 @@
 // React + anime.js dashboard with interactive nodes
 // Nodes are equally spaced on a circle, fixed order, no randomization
 const baseNodes = [
-  { label: "A", staticIcon: "img/icons8-alert.png", gifIcon: "img/icons8-alert.gif" },
-  { label: "B", staticIcon: "img/icons8-connection.png", gifIcon: "img/icons8-connection.gif" },
-  { label: "C", staticIcon: "img/icons8-document.png", gifIcon: "img/icons8-document.gif" },
-  { label: "D", staticIcon: "img/icons8-home.png", gifIcon: "img/icons8-home.gif" },
-  { label: "E", staticIcon: "img/icons8-lock.png", gifIcon: "img/icons8-lock.gif" },
-  { label: "F", staticIcon: "img/icons8-rain-cloud.png", gifIcon: "img/icons8-rain-cloud.gif" },
-  { label: "G", staticIcon: "img/icons8-learning.png", gifIcon: "img/icons8-learning.gif" }
+  { label: "NETWORK", staticIcon: "img/cloud-network-whitebg.png", gifIcon: "img/cloud-network.gif" },
+  { label: "KEY", staticIcon: "img/encryption-whitebg.png", gifIcon: "img/encryption.gif" },
+  { label: "STATUS", staticIcon: "img/heartbeat-whitebg.png", gifIcon: "img/heartbeat.gif" },
+  { label: "HOME", staticIcon: "img/home-whitebg.png", gifIcon: "img/home.gif" },
+  { label: "INFO", staticIcon: "img/line-chart-whitebg.png", gifIcon: "img/line-chart.gif" },
+  { label: "SETTINGS", staticIcon: "img/settings-whitebg.png", gifIcon: "img/settings.gif" },
+  { label: "SHARE", staticIcon: "img/share-whitebg.png", gifIcon: "img/share.gif" }
 ];
 function getCircleNodes(radius = 200, centerX = 300, centerY = 200) {
   const n = baseNodes.length;
@@ -90,14 +90,15 @@ function Dashboard() {
             'z-index': 2,
             'transition-property': 'width height',
             'transition-duration': '200ms',
+            
           }
         },
         {
           selector: 'edge',
           style: {
-            'width': 2,
-            'line-color': '#fff',
-            'opacity': 0.5,
+            'width': 6,
+            'line-color': 'black',
+            'opacity': 1.0,
             'z-index': 1,
           }
         }

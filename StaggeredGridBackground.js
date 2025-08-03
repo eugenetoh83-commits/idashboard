@@ -10,7 +10,7 @@
     const rows = Math.ceil(dimensions.height / cellSize);
     const cols = Math.ceil(dimensions.width / cellSize);
     const bgColor = props.bgColor || '#181a20';
-    const dotColor = '#50555cff';
+    const dotColor = '#145050';
     const burstColor = '#252121ff';
     const canvasRef = React.useRef(null);
     const gridRef = React.useRef([]);
@@ -122,8 +122,8 @@
       const normalSize = cellSize/3;
       const expandAlpha = 1.2;
       const normalAlpha = 1;
-      const expandDuration = 120;
-      const contractDuration = 220;
+      const expandDuration = 20;
+      const contractDuration = 1250;
       const frameRate = 1000/60;
       // Store animation state
       let startTime = performance.now();
