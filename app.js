@@ -353,7 +353,69 @@ function Dashboard() {
             />
           )}
         </svg>
-        <div ref={cyRef} style={{ width: '100%', height: '100%' }} />
+        <div 
+          ref={cyRef} 
+          style={{ width: '100%', height: '100%' }}
+          onMouseDown={(e) => {
+            console.log('[CYTOSCAPE] Mouse down event intercepted:', e.type, e.clientX, e.clientY);
+            // Call hexagon background handlers directly
+            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleCanvasClick) {
+              console.log('[CYTOSCAPE] Calling hexagon background click handler directly');
+              window.HexagonBackgroundHandlers.handleCanvasClick(e);
+            } else {
+              console.log('[CYTOSCAPE] HexagonBackgroundHandlers not available yet');
+            }
+          }}
+          onClick={(e) => {
+            console.log('[CYTOSCAPE] Click event intercepted:', e.type, e.clientX, e.clientY);
+            // Call hexagon background handlers directly
+            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleCanvasClick) {
+              console.log('[CYTOSCAPE] Calling hexagon background click handler directly');
+              window.HexagonBackgroundHandlers.handleCanvasClick(e);
+            } else {
+              console.log('[CYTOSCAPE] HexagonBackgroundHandlers not available yet');
+            }
+          }}
+          onTouchStart={(e) => {
+            console.log('[CYTOSCAPE] Touch start event intercepted:', e.type, e.touches.length);
+            // Call hexagon background handlers directly
+            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchStart) {
+              console.log('[CYTOSCAPE] Calling hexagon background touch handler directly');
+              window.HexagonBackgroundHandlers.handleTouchStart(e);
+            } else {
+              console.log('[CYTOSCAPE] HexagonBackgroundHandlers not available yet');
+            }
+          }}
+          onTouchEnd={(e) => {
+            console.log('[CYTOSCAPE] Touch end event intercepted:', e.type);
+            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchEnd) {
+              window.HexagonBackgroundHandlers.handleTouchEnd(e);
+            }
+          }}
+          onTouchMove={(e) => {
+            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleTouchMove) {
+              window.HexagonBackgroundHandlers.handleTouchMove(e);
+            }
+          }}
+          onMouseMove={(e) => {
+            // Only call occasionally to avoid spam
+            if (Math.random() < 0.005 && window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseMove) {
+              window.HexagonBackgroundHandlers.handleMouseMove(e);
+            }
+          }}
+          onMouseEnter={(e) => {
+            console.log('[CYTOSCAPE] Mouse enter event intercepted:', e.type);
+            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseEnter) {
+              window.HexagonBackgroundHandlers.handleMouseEnter(e);
+            }
+          }}
+          onMouseLeave={(e) => {
+            console.log('[CYTOSCAPE] Mouse leave event intercepted:', e.type);
+            if (window.HexagonBackgroundHandlers && window.HexagonBackgroundHandlers.handleMouseLeave) {
+              window.HexagonBackgroundHandlers.handleMouseLeave(e);
+            }
+          }}
+        />
         {/* Overlay animated GIFs on nodes */}
         {nodeScreenPositions.map(node => {
           const nodeData = nodesData[parseInt(node.id)];

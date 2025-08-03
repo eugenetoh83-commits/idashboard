@@ -111,9 +111,29 @@ function HexagonBackgroundCanvas() {
 
   // Handle click/touch for color wave
   function handleCanvasClick(e) {
+    console.log('[HEXAGON CANVAS] CLICK EVENT:', {
+      type: e.type,
+      target: e.target,
+      currentTarget: e.currentTarget,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      pointerType: e.pointerType,
+      button: e.button,
+      bubbles: e.bubbles,
+      cancelable: e.cancelable,
+      composed: e.composed,
+      eventPhase: e.eventPhase,
+      isTrusted: e.isTrusted,
+      defaultPrevented: e.defaultPrevented,
+      timeStamp: e.timeStamp
+    });
+    
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    
+    console.log('[HEXAGON CANVAS] Click coordinates:', { x, y, rect });
+    
     // Find the closest hex
     let minDist = Infinity, minIdx = -1;
     for (let i = 0; i < hexes.length; i++) {
@@ -125,7 +145,11 @@ function HexagonBackgroundCanvas() {
         minIdx = i;
       }
     }
+    
+    console.log('[HEXAGON CANVAS] Closest hex:', { minIdx, minDist, threshold: size * 1.1 });
+    
     if (minIdx !== -1 && minDist < size * 1.1) {
+      console.log('[HEXAGON CANVAS] Triggering hex wave effect');
       // Wave color effect
       const newHexes = [...hexes];
       const queue = [[minIdx, 0]];
@@ -152,6 +176,7 @@ function HexagonBackgroundCanvas() {
       }
       setHexes(newHexes);
     } else {
+      console.log('[HEXAGON CANVAS] No hex clicked or distance too far');
       // Animate background color
       const bgArr = theme === 'light' ? LIGHT_BG_COLORS : DARK_BG_COLORS;
       const newColor = bgArr[Math.floor(Math.random() * bgArr.length)];
@@ -168,6 +193,93 @@ function HexagonBackgroundCanvas() {
       });
     }
   }
+
+  // Additional event handlers for comprehensive logging
+  function handleTouchStart(e) {
+    console.log('[HEXAGON CANVAS] TOUCH START:', {
+      type: e.type,
+      touches: e.touches ? Array.from(e.touches).map(t => ({
+        clientX: t.clientX,
+        clientY: t.clientY,
+        identifier: t.identifier,
+        pageX: t.pageX,
+        pageY: t.pageY,
+        radiusX: t.radiusX,
+        radiusY: t.radiusY,
+        rotationAngle: t.rotationAngle,
+        force: t.force
+      })) : [],
+      changedTouches: e.changedTouches ? Array.from(e.changedTouches).map(t => ({
+        clientX: t.clientX,
+        clientY: t.clientY,
+        identifier: t.identifier
+      })) : [],
+      timeStamp: e.timeStamp
+    });
+    handleCanvasClick(e.touches[0]);
+  }
+
+  function handleTouchEnd(e) {
+    console.log('[HEXAGON CANVAS] TOUCH END:', {
+      type: e.type,
+      touches: e.touches ? Array.from(e.touches).length : 0,
+      changedTouches: e.changedTouches ? Array.from(e.changedTouches).length : 0,
+      timeStamp: e.timeStamp
+    });
+  }
+
+  function handleTouchMove(e) {
+    if (e.touches && e.touches.length > 0) {
+      const touch = e.touches[0];
+      console.log('[HEXAGON CANVAS] TOUCH MOVE:', {
+        type: e.type,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        timeStamp: e.timeStamp
+      });
+    }
+  }
+
+  function handleMouseEnter(e) {
+    console.log('[HEXAGON CANVAS] MOUSE ENTER:', {
+      type: e.type,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      timeStamp: e.timeStamp
+    });
+  }
+
+  function handleMouseLeave(e) {
+    console.log('[HEXAGON CANVAS] MOUSE LEAVE:', {
+      type: e.type,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      timeStamp: e.timeStamp
+    });
+  }
+
+  function handleMouseMove(e) {
+    // Only log occasionally to avoid spam
+    if (Math.random() < 0.01) {
+      console.log('[HEXAGON CANVAS] MOUSE MOVE (sampled):', {
+        type: e.type,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        timeStamp: e.timeStamp
+      });
+    }
+  }
+
+  // Expose event handlers globally for external triggering immediately
+  window.HexagonBackgroundHandlers = {
+    handleCanvasClick,
+    handleTouchStart,
+    handleTouchEnd,
+    handleTouchMove,
+    handleMouseEnter,
+    handleMouseLeave,
+    handleMouseMove
+  };
 
   return React.createElement('canvas', {
     ref: canvasRef,
@@ -187,7 +299,12 @@ function HexagonBackgroundCanvas() {
       cursor: 'pointer',
     },
     onClick: handleCanvasClick,
-    onTouchStart: handleCanvasClick,
+    onTouchStart: handleTouchStart,
+    onTouchEnd: handleTouchEnd,
+    onTouchMove: handleTouchMove,
+    onMouseEnter: handleMouseEnter,
+    onMouseLeave: handleMouseLeave,
+    onMouseMove: handleMouseMove,
   });
 }
 
