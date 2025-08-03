@@ -21,13 +21,13 @@
     const colorSchemes = {
       light: {
         bgColor: '#dff0fe',
-        dotColor: '#538ec7',
-        burstColor: '#252121ff'
+        dotColor: 'rgb(180, 200, 220)', // Metallic light blue
+        burstColor: 'rgb(150, 170, 200)' // Darker metallic blue for burst
       },
       dark: {
         bgColor: '#121212',
-        dotColor: '#72a5d6',
-        burstColor: '#72a5d6ff'
+        dotColor: 'rgb(180, 200, 220)', // Same metallic light blue for consistency
+        burstColor: 'rgb(210, 230, 250)' // Lighter metallic blue for dark theme burst
       }
     };
     
@@ -44,6 +44,12 @@
     const gridRef = React.useRef([]);
     const animStateRef = React.useRef([]); // {size, alpha, translateX, translateY} for each dot
     const burstRef = React.useRef(null); // {x, y, active, progress}
+
+    // Sparkle system for mouse hover effects
+    const [sparkles, setSparkles] = React.useState([]);
+    const sparkleId = React.useRef(0);
+    const lastSparkle = React.useRef(0);
+    const SPARKLE_THROTTLE = 60;
 
     // Listen for theme changes
     React.useEffect(() => {
@@ -279,6 +285,37 @@
     React.useEffect(function() {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      
+      // Handle mouse move for sparkles
+      function handleMouseMove(e) {
+        const now = Date.now();
+        if (now - lastSparkle.current < SPARKLE_THROTTLE) return;
+        lastSparkle.current = now;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left + (Math.random() - 0.5) * 64;
+        const y = e.clientY - rect.top + (Math.random() - 0.5) * 64;
+        const id = sparkleId.current++;
+        
+        // Theme-responsive sparkle colors that complement the metallic blue dots
+        const currentTheme = getCurrentTheme();
+        const sparkleColors = currentTheme === 'light' 
+          ? ["rgb(210, 230, 250)", "rgb(190, 210, 240)", "rgb(170, 190, 230)", "#ffffff"]  // Light metallic blue variations
+          : ["rgb(210, 230, 250)", "rgb(180, 200, 220)", "rgb(150, 170, 200)", "#ffffff"]; // Metallic blue variations for dark theme
+        
+        const color = sparkleColors[Math.floor(Math.random() * sparkleColors.length)];
+        const size = 5 + Math.random() * 15;
+        
+        setSparkles(sparkles => [
+          ...sparkles,
+          { id, x, y, color, size }
+        ]);
+        
+        setTimeout(() => {
+          setSparkles(sparkles => sparkles.filter(s => s.id !== id));
+        }, 700);
+      }
+      
       function getXY(e) {
         let x, y;
         if (e.touches && e.touches.length > 0) {
@@ -319,16 +356,17 @@
       
       canvas.addEventListener('mousedown', handlePointer);
       canvas.addEventListener('touchstart', handlePointer, { passive: true });
+      canvas.addEventListener('mousemove', handleMouseMove);
       return () => {
         canvas.removeEventListener('mousedown', handlePointer);
         canvas.removeEventListener('touchstart', handlePointer);
+        canvas.removeEventListener('mousemove', handleMouseMove);
         delete window.StaggeredGridBackgroundHandlers;
       };
     }, []);
 
-    // Responsive canvas style
-    return React.createElement('canvas', {
-      ref: canvasRef,
+    // Responsive canvas style with sparkles overlay
+    return React.createElement('div', {
       style: {
         position: 'fixed',
         left: 0,
@@ -337,12 +375,43 @@
         height: '100vh',
         zIndex: 0,
         pointerEvents: 'auto',
-        background: getColors().bgColor, // Update to use dynamic colors
         touchAction: 'none',
-        cursor: 'pointer'
-      },
-      title: 'Click or tap to ripple the grid'
-    });
+      }
+    }, [
+      // Canvas element
+      React.createElement('canvas', {
+        key: 'canvas',
+        ref: canvasRef,
+        style: {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: '100vw',
+          height: '100vh',
+          background: getColors().bgColor,
+          cursor: 'pointer'
+        },
+        title: 'Click or tap to ripple the grid'
+      }),
+      // Sparkles overlay
+      ...sparkles.map(sparkle =>
+        React.createElement('div', {
+          key: sparkle.id,
+          style: {
+            position: 'absolute',
+            left: sparkle.x - sparkle.size / 2,
+            top: sparkle.y - sparkle.size / 2,
+            width: sparkle.size,
+            height: sparkle.size,
+            background: sparkle.color,
+            borderRadius: '50%',
+            pointerEvents: 'none',
+            boxShadow: `0 0 ${sparkle.size * 2}px ${sparkle.size / 2}px ${sparkle.color}`,
+            zIndex: 10,
+          }
+        })
+      )
+    ]);
   }
   window.StaggeredGridBackground = StaggeredGridBackground;
 })();

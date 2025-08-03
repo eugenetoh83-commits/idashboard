@@ -288,6 +288,7 @@ function Dashboard({ backgroundType }) {
   }
 
   const traverseColor = document.body.classList.contains('light-theme') ? '#43c3d4ff' : '#f15bb5';
+  const staticEdgeColor = document.body.classList.contains('light-theme') ? '#333333' : '#cccccc'; // Dark grey for light theme, light grey for dark theme
 
 
   return (
@@ -316,7 +317,7 @@ function Dashboard({ backgroundType }) {
                 y1={n1.y}
                 x2={n2.x}
                 y2={n2.y}
-                stroke="black"
+                stroke={staticEdgeColor}
                 strokeWidth="8"
                 opacity="0.8"
               />
