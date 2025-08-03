@@ -5,7 +5,7 @@ const baseNodes = [
   { label: "KEY", staticIcon: "img/encryption-whitebg.png", gifIcon: "img/encryption.gif" },
   { label: "STATUS", staticIcon: "img/heartbeat-whitebg.png", gifIcon: "img/heartbeat.gif" },
   { label: "HOME", staticIcon: "img/home-whitebg.png", gifIcon: "img/home.gif" },
-  { label: "INFO", staticIcon: "img/line-chart-whitebg.png", gifIcon: "img/line-chart.gif" },
+  { label: "SYSTEM", staticIcon: "img/line-chart-whitebg.png", gifIcon: "img/line-chart.gif" },
   { label: "SETTINGS", staticIcon: "img/settings-whitebg.png", gifIcon: "img/settings.gif" },
   { label: "SHARE", staticIcon: "img/share-whitebg.png", gifIcon: "img/share.gif" }
 ];
@@ -36,7 +36,7 @@ function getResponsiveNodeSize(isHovered) {
   return isHovered ? base * 1.35 : base;
 }
 
-function Dashboard({ backgroundType }) {
+function Dashboard({ backgroundType, onSystemClick }) {
   const cyRef = React.useRef(null);
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const [nodeScreenPositions, setNodeScreenPositions] = React.useState([]);
@@ -411,6 +411,12 @@ function Dashboard({ backgroundType }) {
               key={node.id}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
+              onClick={() => {
+                // Handle SYSTEM node click - toggle InfoDialog
+                if (node.label === 'SYSTEM') {
+                  onSystemClick();
+                }
+              }}
               style={{
                 position: 'absolute',
                 left,
@@ -422,6 +428,7 @@ function Dashboard({ backgroundType }) {
                 alignItems: 'center',
                 pointerEvents: 'auto', // Allow mouse events
                 zIndex: 3,
+                cursor: node.label === 'SYSTEM' ? 'pointer' : 'default',
               }}
             >
               {/* Animated border overlay */}
@@ -571,6 +578,9 @@ function App() {
     return 'hexagon'; // Default to hexagon background
   });
 
+  // Add InfoDialog state
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = React.useState(false);
+
   React.useEffect(() => {
     // Set body class for theme
     console.log('[APP] Setting body classes for theme:', theme);
@@ -590,7 +600,10 @@ function App() {
 
   return (
     <div>
-      <Dashboard backgroundType={backgroundType} />
+      <Dashboard 
+        backgroundType={backgroundType} 
+        onSystemClick={() => setIsInfoDialogOpen(!isInfoDialogOpen)}
+      />
       {renderBackground()}
       <BackgroundToggle 
         backgroundType={backgroundType} 
@@ -598,6 +611,11 @@ function App() {
         theme={theme} 
       />
       <ThemeToggle theme={theme} setTheme={setTheme} />
+      {window.InfoDialog && React.createElement(window.InfoDialog, {
+        isOpen: isInfoDialogOpen,
+        onClose: () => setIsInfoDialogOpen(false),
+        theme: theme
+      })}
     </div>
   );
 }

@@ -127,7 +127,7 @@ body.light-theme {
   pointer-events: none;
   z-index: 20;
 }
-@import url('https://fonts.googleapis.com/css?family=Dosis:600,800');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&display=swap');
 
 * {
     margin: 0;
@@ -138,7 +138,7 @@ body.light-theme {
 body {
     background: linear-gradient(135deg, #1a2634 0%, #203a43 100%);
     min-height: 100vh;
-    font-family: Arial, sans-serif;
+    font-family: 'Roboto Condensed', sans-serif;
 }
 
 .dashboard {
