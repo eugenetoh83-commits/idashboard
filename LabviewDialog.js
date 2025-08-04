@@ -213,6 +213,10 @@
             console.log('🏗️ Mesh names:', meshNames);
             
             scene.add(model);
+            
+            // Add monitors to the scene after model is loaded
+            addMonitorsToScene(scene);
+            
             console.log('🎯 Model added to scene');
             resolve(model);
           },
@@ -228,6 +232,110 @@
           }
         );
       });
+    };
+
+    // Add monitors/displays to the scene
+    const addMonitorsToScene = (scene) => {
+      console.log('🖥️ Adding monitors to the scene...');
+      
+      // Monitor configurations - position, rotation, screen content
+      const monitorConfigs = [
+        {
+          position: [-2, 1, -2.8], // Left wall
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          screenColor: 0x001133,
+          label: "Monitor 1"
+        },
+        {
+          position: [2, 1, -2.8], // Right side of back wall
+          rotation: [0, 0, 0],
+          scale: [0.8, 0.8, 0.8],
+          screenColor: 0x003311,
+          label: "Monitor 2"
+        },
+        {
+          position: [0, 1.2, 1.5], // Center, facing back wall
+          rotation: [0, Math.PI, 0],
+          scale: [1.2, 1.2, 1.2],
+          screenColor: 0x330011,
+          label: "Main Display"
+        }
+      ];
+
+      monitorConfigs.forEach((config, index) => {
+        const monitor = createMonitor(config);
+        monitor.position.set(...config.position);
+        monitor.rotation.set(...config.rotation);
+        monitor.scale.set(...config.scale);
+        scene.add(monitor);
+        console.log(`  ✅ Added ${config.label} at position [${config.position.join(', ')}]`);
+      });
+      
+      console.log('🖥️ All monitors added successfully!');
+    };
+
+    // Create a single monitor object
+    const createMonitor = (config) => {
+      const monitorGroup = new THREE.Group();
+      
+      // Monitor base/stand
+      const baseGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.05, 16);
+      const baseMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+      const base = new THREE.Mesh(baseGeometry, baseMaterial);
+      base.position.y = -0.45;
+      base.castShadow = true;
+      monitorGroup.add(base);
+      
+      // Monitor stand/neck
+      const neckGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.4, 8);
+      const neckMaterial = new THREE.MeshLambertMaterial({ color: 0x444444 });
+      const neck = new THREE.Mesh(neckGeometry, neckMaterial);
+      neck.position.y = -0.25;
+      neck.castShadow = true;
+      monitorGroup.add(neck);
+      
+      // Monitor back/housing
+      const housingGeometry = new THREE.BoxGeometry(0.8, 0.5, 0.08);
+      const housingMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+      const housing = new THREE.Mesh(housingGeometry, housingMaterial);
+      housing.position.z = -0.04;
+      housing.castShadow = true;
+      housing.receiveShadow = true;
+      monitorGroup.add(housing);
+      
+      // Monitor screen (the main display)
+      const screenGeometry = new THREE.PlaneGeometry(0.7, 0.4);
+      const screenMaterial = new THREE.MeshLambertMaterial({ 
+        color: config.screenColor,
+        emissive: config.screenColor,
+        emissiveIntensity: 0.3
+      });
+      const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+      screen.position.z = 0.001; // Slightly in front of housing
+      monitorGroup.add(screen);
+      
+      // Screen border/bezel
+      const bezelGeometry = new THREE.PlaneGeometry(0.74, 0.44);
+      const bezelMaterial = new THREE.MeshLambertMaterial({ color: 0x111111 });
+      const bezel = new THREE.Mesh(bezelGeometry, bezelMaterial);
+      bezel.position.z = -0.001; // Slightly behind screen
+      monitorGroup.add(bezel);
+      
+      // Add some screen content simulation (optional animated elements)
+      const contentGeometry = new THREE.PlaneGeometry(0.6, 0.3);
+      const contentMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x004488,
+        emissive: 0x001122,
+        emissiveIntensity: 0.2,
+        transparent: true,
+        opacity: 0.8
+      });
+      const content = new THREE.Mesh(contentGeometry, contentMaterial);
+      content.position.z = 0.002;
+      monitorGroup.add(content);
+      
+      return monitorGroup;
     };
 
     const createFallbackGeometry = (scene) => {
