@@ -36,7 +36,7 @@ function getResponsiveNodeSize(isHovered) {
   return isHovered ? base * 1.35 : base;
 }
 
-function Dashboard({ backgroundType, onSystemClick }) {
+function Dashboard({ backgroundType, onSystemClick, onStatusClick }) {
   const cyRef = React.useRef(null);
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const [nodeScreenPositions, setNodeScreenPositions] = React.useState([]);
@@ -416,6 +416,10 @@ function Dashboard({ backgroundType, onSystemClick }) {
                 if (node.label === 'SYSTEM') {
                   onSystemClick();
                 }
+                // Handle STATUS node click - toggle ChatbotDialog
+                if (node.label === 'STATUS') {
+                  onStatusClick();
+                }
               }}
               style={{
                 position: 'absolute',
@@ -428,7 +432,7 @@ function Dashboard({ backgroundType, onSystemClick }) {
                 alignItems: 'center',
                 pointerEvents: 'auto', // Allow mouse events
                 zIndex: 3,
-                cursor: node.label === 'SYSTEM' ? 'pointer' : 'default',
+                cursor: (node.label === 'SYSTEM' || node.label === 'STATUS') ? 'pointer' : 'default',
               }}
             >
               {/* Animated border overlay */}
@@ -584,6 +588,9 @@ function App() {
 
   // Add InfoDialog state
   const [isInfoDialogOpen, setIsInfoDialogOpen] = React.useState(false);
+  
+  // Add ChatbotDialog state
+  const [isChatbotDialogOpen, setIsChatbotDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     // Set body class for theme
@@ -606,7 +613,24 @@ function App() {
     <div>
       <Dashboard 
         backgroundType={backgroundType} 
-        onSystemClick={() => setIsInfoDialogOpen(!isInfoDialogOpen)}
+        onSystemClick={() => {
+          // Close chatbot dialog if open, then toggle info dialog
+          if (isChatbotDialogOpen) {
+            setIsChatbotDialogOpen(false);
+            setTimeout(() => setIsInfoDialogOpen(!isInfoDialogOpen), 400);
+          } else {
+            setIsInfoDialogOpen(!isInfoDialogOpen);
+          }
+        }}
+        onStatusClick={() => {
+          // Close info dialog if open, then toggle chatbot dialog
+          if (isInfoDialogOpen) {
+            setIsInfoDialogOpen(false);
+            setTimeout(() => setIsChatbotDialogOpen(!isChatbotDialogOpen), 400);
+          } else {
+            setIsChatbotDialogOpen(!isChatbotDialogOpen);
+          }
+        }}
       />
       {renderBackground()}
       <BackgroundToggle 
@@ -618,6 +642,11 @@ function App() {
       {window.InfoDialog && React.createElement(window.InfoDialog, {
         isOpen: isInfoDialogOpen,
         onClose: () => setIsInfoDialogOpen(false),
+        theme: theme
+      })}
+      {window.ChatbotDialog && React.createElement(window.ChatbotDialog, {
+        isOpen: isChatbotDialogOpen,
+        onClose: () => setIsChatbotDialogOpen(false),
         theme: theme
       })}
     </div>
