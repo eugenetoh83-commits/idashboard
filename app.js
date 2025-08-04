@@ -36,7 +36,7 @@ function getResponsiveNodeSize(isHovered) {
   return isHovered ? base * 1.35 : base;
 }
 
-function Dashboard({ backgroundType, onSystemClick, onStatusClick }) {
+function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick }) {
   const cyRef = React.useRef(null);
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const [nodeScreenPositions, setNodeScreenPositions] = React.useState([]);
@@ -420,6 +420,10 @@ function Dashboard({ backgroundType, onSystemClick, onStatusClick }) {
                 if (node.label === 'CHATBOT') {
                   onStatusClick();
                 }
+                // Handle HOME node click - toggle LabviewDialog
+                if (node.label === 'HOME') {
+                  onHomeClick();
+                }
               }}
               style={{
                 position: 'absolute',
@@ -432,7 +436,7 @@ function Dashboard({ backgroundType, onSystemClick, onStatusClick }) {
                 alignItems: 'center',
                 pointerEvents: 'auto', // Allow mouse events
                 zIndex: 3,
-                cursor: (node.label === 'SYSTEM' || node.label === 'CHATBOT') ? 'pointer' : 'default',
+                cursor: (node.label === 'SYSTEM' || node.label === 'CHATBOT' || node.label === 'HOME') ? 'pointer' : 'default',
               }}
             >
               {/* Animated border overlay */}
@@ -591,6 +595,9 @@ function App() {
   
   // Add ChatbotDialog state
   const [isChatbotDialogOpen, setIsChatbotDialogOpen] = React.useState(false);
+  
+  // Add LabviewDialog state
+  const [isLabviewDialogOpen, setIsLabviewDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     // Set body class for theme
@@ -614,21 +621,39 @@ function App() {
       <Dashboard 
         backgroundType={backgroundType} 
         onSystemClick={() => {
-          // Close chatbot dialog if open, then toggle info dialog
+          // Close other dialogs if open, then toggle info dialog
           if (isChatbotDialogOpen) {
             setIsChatbotDialogOpen(false);
+            setTimeout(() => setIsInfoDialogOpen(!isInfoDialogOpen), 400);
+          } else if (isLabviewDialogOpen) {
+            setIsLabviewDialogOpen(false);
             setTimeout(() => setIsInfoDialogOpen(!isInfoDialogOpen), 400);
           } else {
             setIsInfoDialogOpen(!isInfoDialogOpen);
           }
         }}
         onStatusClick={() => {
-          // Close info dialog if open, then toggle chatbot dialog
+          // Close other dialogs if open, then toggle chatbot dialog
           if (isInfoDialogOpen) {
             setIsInfoDialogOpen(false);
             setTimeout(() => setIsChatbotDialogOpen(!isChatbotDialogOpen), 400);
+          } else if (isLabviewDialogOpen) {
+            setIsLabviewDialogOpen(false);
+            setTimeout(() => setIsChatbotDialogOpen(!isChatbotDialogOpen), 400);
           } else {
             setIsChatbotDialogOpen(!isChatbotDialogOpen);
+          }
+        }}
+        onHomeClick={() => {
+          // Close other dialogs if open, then toggle labview dialog
+          if (isInfoDialogOpen) {
+            setIsInfoDialogOpen(false);
+            setTimeout(() => setIsLabviewDialogOpen(!isLabviewDialogOpen), 400);
+          } else if (isChatbotDialogOpen) {
+            setIsChatbotDialogOpen(false);
+            setTimeout(() => setIsLabviewDialogOpen(!isLabviewDialogOpen), 400);
+          } else {
+            setIsLabviewDialogOpen(!isLabviewDialogOpen);
           }
         }}
       />
@@ -647,6 +672,11 @@ function App() {
       {window.ChatbotDialog && React.createElement(window.ChatbotDialog, {
         isOpen: isChatbotDialogOpen,
         onClose: () => setIsChatbotDialogOpen(false),
+        theme: theme
+      })}
+      {window.LabviewDialog && React.createElement(window.LabviewDialog, {
+        isOpen: isLabviewDialogOpen,
+        onClose: () => setIsLabviewDialogOpen(false),
         theme: theme
       })}
     </div>
