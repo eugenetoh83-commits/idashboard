@@ -31,36 +31,61 @@
         [0,1,0,0,0,0,1,0],
         [0,0,1,1,1,1,0,0]
       ],
-      fishing: [
-        [0,0,0,1,0,0,0,0],
-        [0,0,1,1,1,0,0,0],
-        [0,1,0,1,0,1,0,0],
-        [1,0,0,1,0,0,1,0],
-        [1,0,0,1,0,0,1,0],
-        [1,0,0,0,1,0,1,0],
-        [0,1,0,0,0,1,0,0],
-        [0,0,1,1,1,0,0,1]
-      ],
-      reading: [
-        [0,1,1,1,1,1,1,0],
-        [1,0,1,0,1,0,1,1],
-        [1,0,1,0,1,0,1,1],
-        [1,0,0,0,0,0,0,1],
-        [1,0,0,1,1,0,0,1],
-        [1,0,1,1,1,1,0,1],
-        [1,0,0,0,0,0,0,1],
-        [0,1,1,1,1,1,1,0]
-      ],
-      cycling: [
+      clock: [
         [0,0,1,1,1,1,0,0],
         [0,1,0,0,0,0,1,0],
-        [1,0,0,1,1,0,0,1],
-        [1,0,1,0,0,1,0,1],
-        [1,0,0,1,1,0,0,1],
-        [1,0,1,0,0,1,0,1],
-        [0,1,0,1,1,0,1,0],
-        [0,0,1,0,0,1,0,0]
+        [1,0,0,0,1,0,0,1],
+        [1,0,0,0,1,0,0,1],
+        [1,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,1],
+        [0,1,0,0,0,0,1,0],
+        [0,0,1,1,1,1,0,0]
       ]
+    };
+
+    const generateClockPattern = (animationPhase) => {
+      const basePattern = [
+        [0,0,1,1,1,1,0,0],
+        [0,1,0,0,0,0,1,0],
+        [1,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,0,1],
+        [0,1,0,0,0,0,1,0],
+        [0,0,1,1,1,1,0,0]
+      ];
+
+      // Center of the clock
+      const centerX = 3.5;
+      const centerY = 3.5;
+      
+      // Calculate hand positions based on animation phase
+      const hourAngle = (animationPhase * 0.1) % (Math.PI * 2);
+      const minuteAngle = (animationPhase * 0.5) % (Math.PI * 2);
+      
+      // Hour hand (shorter)
+      const hourX = Math.round(centerX + Math.cos(hourAngle - Math.PI / 2) * 1.5);
+      const hourY = Math.round(centerY + Math.sin(hourAngle - Math.PI / 2) * 1.5);
+      
+      // Minute hand (longer)
+      const minuteX = Math.round(centerX + Math.cos(minuteAngle - Math.PI / 2) * 2.5);
+      const minuteY = Math.round(centerY + Math.sin(minuteAngle - Math.PI / 2) * 2.5);
+      
+      // Add hands to pattern
+      if (hourX >= 0 && hourX < 8 && hourY >= 0 && hourY < 8) {
+        basePattern[hourY][hourX] = 1;
+      }
+      if (minuteX >= 0 && minuteX < 8 && minuteY >= 0 && minuteY < 8) {
+        basePattern[minuteY][minuteX] = 1;
+      }
+      
+      // Center dot
+      basePattern[4][4] = 1;
+      basePattern[3][3] = 1;
+      basePattern[3][4] = 1;
+      basePattern[4][3] = 1;
+      
+      return basePattern;
     };
 
     const drawDotMatrix = (canvas, pattern, animationPhase = 0) => {
@@ -78,6 +103,12 @@
       const activeColor = theme === 'light' ? '#333' : '#fff';
       const inactiveColor = theme === 'light' ? 'rgba(51,51,51,0.2)' : 'rgba(255,255,255,0.2)';
 
+      // Use dynamic clock pattern if in clock mode
+      let currentPattern = pattern;
+      if (currentAnimation === 'clock') {
+        currentPattern = generateClockPattern(animationPhase);
+      }
+
       for (let row = 0; row < gridSize; row++) {
         for (let col = 0; col < gridSize; col++) {
           const x = startX + col * dotSize + dotSize * 0.1;
@@ -86,21 +117,15 @@
 
           ctx.beginPath();
           
-          if (pattern[row][col] === 1) {
+          if (currentPattern[row][col] === 1) {
             // Active dot with enhanced pulsing animation
             let pulseScale = 1;
             if (currentAnimation === 'smile') {
               // Gentle pulse for smile
               pulseScale = 1 + Math.sin(animationPhase * 2 + row + col) * 0.15;
-            } else if (currentAnimation === 'fishing') {
-              // Bobbing animation for fishing
-              pulseScale = 1 + Math.sin(animationPhase * 3 + col * 0.5) * 0.25;
-            } else if (currentAnimation === 'reading') {
-              // Page-turning flutter effect
-              pulseScale = 1 + Math.sin(animationPhase * 1.5 + row * 0.3) * 0.1;
-            } else if (currentAnimation === 'cycling') {
-              // Fast cycling motion
-              pulseScale = 1 + Math.sin(animationPhase * 4 + row + col * 0.8) * 0.3;
+            } else if (currentAnimation === 'clock') {
+              // Steady glow for clock
+              pulseScale = 1 + Math.sin(animationPhase * 1.5) * 0.1;
             }
             
             ctx.arc(x + dotRadius, y + dotRadius, dotRadius * pulseScale, 0, 2 * Math.PI);
@@ -160,23 +185,14 @@
       
       idleTimeoutRef.current = setTimeout(() => {
         setIsIdleMode(true);
-        const idleAnimations = ['fishing', 'reading', 'cycling'];
         
-        const cycleToNextAnimation = () => {
-          const randomAnimation = idleAnimations[Math.floor(Math.random() * idleAnimations.length)];
-          const currentPattern = patterns[currentAnimation];
-          const newPattern = patterns[randomAnimation];
-          
-          animatePatternTransition(currentPattern, newPattern, () => {
-            setCurrentAnimation(randomAnimation);
-          });
-        };
+        // Simple transition to clock animation
+        const currentPattern = patterns[currentAnimation];
+        const clockPattern = patterns['clock'];
         
-        // Start first idle animation
-        cycleToNextAnimation();
-        
-        // Continue cycling every 4 seconds
-        cycleIntervalRef.current = setInterval(cycleToNextAnimation, 4000);
+        animatePatternTransition(currentPattern, clockPattern, () => {
+          setCurrentAnimation('clock');
+        });
       }, 3000);
     }, [currentAnimation]);
 
@@ -192,7 +208,7 @@
       
       if (currentAnimation !== 'smile') {
         // Smooth transition back to smile
-        const currentPattern = patterns[currentAnimation];
+        const currentPattern = currentAnimation === 'clock' ? patterns['clock'] : patterns[currentAnimation];
         const smilePattern = patterns['smile'];
         
         animatePatternTransition(currentPattern, smilePattern, () => {
