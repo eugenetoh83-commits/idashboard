@@ -184,6 +184,27 @@
                 if (name.includes('door') || name.includes('window') || name.includes('frame') || name.includes('glass')) {
                   console.log(`    🚪 Found architectural element: ${meshName}`);
                 }
+
+                // Enhance material brightness
+                if (child.material) {
+                  // Make materials brighter and more reflective
+                  if (child.material.color) {
+                    // Brighten the base color
+                    child.material.color.multiplyScalar(1.5);
+                  }
+                  
+                  // Increase emissive for self-illumination
+                  if (child.material.emissive) {
+                    child.material.emissive.setScalar(0.1);
+                  }
+                  
+                  // Adjust roughness for better reflection
+                  if (child.material.roughness !== undefined) {
+                    child.material.roughness = Math.max(0.2, child.material.roughness * 0.7);
+                  }
+                  
+                  console.log(`    🎨 Enhanced brightness for material: ${materialName}`);
+                }
               }
             });
             
@@ -318,12 +339,12 @@
 
     // Setup lighting
     const setupLighting = (scene) => {
-      // Ambient light
-      const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+      // Much brighter ambient light for overall illumination
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.8); // Increased from 0.4 to 0.8
       scene.add(ambientLight);
 
-      // Main directional light
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      // Main directional light - brighter and warmer
+      const directionalLight = new THREE.DirectionalLight(0xffffee, 1.2); // Increased from 0.8 to 1.2
       directionalLight.position.set(5, 10, 5);
       directionalLight.castShadow = true;
       directionalLight.shadow.mapSize.width = 2048;
@@ -336,11 +357,27 @@
       directionalLight.shadow.camera.bottom = -10;
       scene.add(directionalLight);
 
-      // Point light for better illumination
-      const pointLight = new THREE.PointLight(0xffffff, 0.5, 100);
+      // Additional directional light from opposite side
+      const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
+      directionalLight2.position.set(-5, 8, -3);
+      scene.add(directionalLight2);
+
+      // Brighter point light for better illumination
+      const pointLight = new THREE.PointLight(0xffffcc, 0.8, 100); // Increased from 0.5 to 0.8
       pointLight.position.set(0, 3, 0);
       pointLight.castShadow = true;
       scene.add(pointLight);
+
+      // Additional fill lights for even coverage
+      const fillLight1 = new THREE.PointLight(0xffffff, 0.4, 50);
+      fillLight1.position.set(3, 2, 3);
+      scene.add(fillLight1);
+
+      const fillLight2 = new THREE.PointLight(0xffffff, 0.4, 50);
+      fillLight2.position.set(-3, 2, -3);
+      scene.add(fillLight2);
+
+      console.log('💡 Enhanced lighting setup complete - much brighter!');
     };
 
     const dialogStyle = {
