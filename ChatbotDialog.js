@@ -12,6 +12,247 @@
       }
     ]);
     const [inputMessage, setInputMessage] = React.useState('');
+    const canvasRef = React.useRef(null);
+    const animationRef = React.useRef(null);
+    const idleTimeoutRef = React.useRef(null);
+    const cycleIntervalRef = React.useRef(null);
+    const [currentAnimation, setCurrentAnimation] = React.useState('smile');
+    const [isIdleMode, setIsIdleMode] = React.useState(false);
+
+    // Dot matrix patterns (8x8 grid)
+    const patterns = {
+      smile: [
+        [0,0,1,1,1,1,0,0],
+        [0,1,0,0,0,0,1,0],
+        [1,0,1,0,0,1,0,1],
+        [1,0,0,0,0,0,0,1],
+        [1,0,1,0,0,1,0,1],
+        [1,0,0,1,1,0,0,1],
+        [0,1,0,0,0,0,1,0],
+        [0,0,1,1,1,1,0,0]
+      ],
+      fishing: [
+        [0,0,0,1,0,0,0,0],
+        [0,0,1,1,1,0,0,0],
+        [0,1,0,1,0,1,0,0],
+        [1,0,0,1,0,0,1,0],
+        [1,0,0,1,0,0,1,0],
+        [1,0,0,0,1,0,1,0],
+        [0,1,0,0,0,1,0,0],
+        [0,0,1,1,1,0,0,1]
+      ],
+      reading: [
+        [0,1,1,1,1,1,1,0],
+        [1,0,1,0,1,0,1,1],
+        [1,0,1,0,1,0,1,1],
+        [1,0,0,0,0,0,0,1],
+        [1,0,0,1,1,0,0,1],
+        [1,0,1,1,1,1,0,1],
+        [1,0,0,0,0,0,0,1],
+        [0,1,1,1,1,1,1,0]
+      ],
+      cycling: [
+        [0,0,1,1,1,1,0,0],
+        [0,1,0,0,0,0,1,0],
+        [1,0,0,1,1,0,0,1],
+        [1,0,1,0,0,1,0,1],
+        [1,0,0,1,1,0,0,1],
+        [1,0,1,0,0,1,0,1],
+        [0,1,0,1,1,0,1,0],
+        [0,0,1,0,0,1,0,0]
+      ]
+    };
+
+    const drawDotMatrix = (canvas, pattern, animationPhase = 0) => {
+      const ctx = canvas.getContext('2d');
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const gridSize = 8;
+      const dotSize = Math.min(canvasWidth, canvasHeight) / (gridSize + 2);
+      const startX = (canvasWidth - (gridSize * dotSize)) / 2;
+      const startY = (canvasHeight - (gridSize * dotSize)) / 2;
+
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      // Color based on theme
+      const activeColor = theme === 'light' ? '#333' : '#fff';
+      const inactiveColor = theme === 'light' ? 'rgba(51,51,51,0.2)' : 'rgba(255,255,255,0.2)';
+
+      for (let row = 0; row < gridSize; row++) {
+        for (let col = 0; col < gridSize; col++) {
+          const x = startX + col * dotSize + dotSize * 0.1;
+          const y = startY + row * dotSize + dotSize * 0.1;
+          const dotRadius = (dotSize * 0.8) / 2;
+
+          ctx.beginPath();
+          
+          if (pattern[row][col] === 1) {
+            // Active dot with enhanced pulsing animation
+            let pulseScale = 1;
+            if (currentAnimation === 'smile') {
+              // Gentle pulse for smile
+              pulseScale = 1 + Math.sin(animationPhase * 2 + row + col) * 0.15;
+            } else if (currentAnimation === 'fishing') {
+              // Bobbing animation for fishing
+              pulseScale = 1 + Math.sin(animationPhase * 3 + col * 0.5) * 0.25;
+            } else if (currentAnimation === 'reading') {
+              // Page-turning flutter effect
+              pulseScale = 1 + Math.sin(animationPhase * 1.5 + row * 0.3) * 0.1;
+            } else if (currentAnimation === 'cycling') {
+              // Fast cycling motion
+              pulseScale = 1 + Math.sin(animationPhase * 4 + row + col * 0.8) * 0.3;
+            }
+            
+            ctx.arc(x + dotRadius, y + dotRadius, dotRadius * pulseScale, 0, 2 * Math.PI);
+            ctx.fillStyle = activeColor;
+          } else {
+            // Inactive dot with subtle breathing
+            const breatheScale = 0.3 + Math.sin(animationPhase * 0.5) * 0.1;
+            ctx.arc(x + dotRadius, y + dotRadius, dotRadius * breatheScale, 0, 2 * Math.PI);
+            ctx.fillStyle = inactiveColor;
+          }
+          
+          ctx.fill();
+        }
+      }
+    };
+
+    const animatePatternTransition = (fromPattern, toPattern, callback) => {
+      if (!window.anime) {
+        callback();
+        return;
+      }
+
+      // Create transition animation using anime.js
+      const transitionData = { progress: 0 };
+      
+      anime({
+        targets: transitionData,
+        progress: 1,
+        duration: 800,
+        easing: 'easeInOutQuad',
+        update: () => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          
+          // Interpolate between patterns
+          const blendedPattern = fromPattern.map((row, rowIndex) =>
+            row.map((dot, colIndex) => {
+              const from = dot;
+              const to = toPattern[rowIndex][colIndex];
+              return Math.random() < (from * (1 - transitionData.progress) + to * transitionData.progress) ? 1 : 0;
+            })
+          );
+          
+          drawDotMatrix(canvas, blendedPattern, Date.now() * 0.01);
+        },
+        complete: callback
+      });
+    };
+
+    const startIdleAnimation = React.useCallback(() => {
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+      }
+      if (cycleIntervalRef.current) {
+        clearInterval(cycleIntervalRef.current);
+      }
+      
+      idleTimeoutRef.current = setTimeout(() => {
+        setIsIdleMode(true);
+        const idleAnimations = ['fishing', 'reading', 'cycling'];
+        
+        const cycleToNextAnimation = () => {
+          const randomAnimation = idleAnimations[Math.floor(Math.random() * idleAnimations.length)];
+          const currentPattern = patterns[currentAnimation];
+          const newPattern = patterns[randomAnimation];
+          
+          animatePatternTransition(currentPattern, newPattern, () => {
+            setCurrentAnimation(randomAnimation);
+          });
+        };
+        
+        // Start first idle animation
+        cycleToNextAnimation();
+        
+        // Continue cycling every 4 seconds
+        cycleIntervalRef.current = setInterval(cycleToNextAnimation, 4000);
+      }, 3000);
+    }, [currentAnimation]);
+
+    const resetToSmile = React.useCallback(() => {
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+      }
+      if (cycleIntervalRef.current) {
+        clearInterval(cycleIntervalRef.current);
+      }
+      
+      setIsIdleMode(false);
+      
+      if (currentAnimation !== 'smile') {
+        // Smooth transition back to smile
+        const currentPattern = patterns[currentAnimation];
+        const smilePattern = patterns['smile'];
+        
+        animatePatternTransition(currentPattern, smilePattern, () => {
+          setCurrentAnimation('smile');
+          startIdleAnimation();
+        });
+      } else {
+        startIdleAnimation();
+      }
+    }, [currentAnimation, startIdleAnimation]);
+
+    React.useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      let animationPhase = 0;
+      const animate = () => {
+        animationPhase += 0.1;
+        drawDotMatrix(canvas, patterns[currentAnimation], animationPhase);
+        animationRef.current = requestAnimationFrame(animate);
+      };
+
+      animate();
+      
+      return () => {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+      };
+    }, [currentAnimation, theme]);
+
+    React.useEffect(() => {
+      if (isOpen) {
+        setCurrentAnimation('smile');
+        setIsIdleMode(false);
+        startIdleAnimation();
+      } else {
+        if (idleTimeoutRef.current) {
+          clearTimeout(idleTimeoutRef.current);
+        }
+        if (cycleIntervalRef.current) {
+          clearInterval(cycleIntervalRef.current);
+        }
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+      }
+
+      return () => {
+        if (idleTimeoutRef.current) {
+          clearTimeout(idleTimeoutRef.current);
+        }
+        if (cycleIntervalRef.current) {
+          clearInterval(cycleIntervalRef.current);
+        }
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+      };
+    }, [isOpen, startIdleAnimation]);
 
     const dialogStyle = {
       position: 'fixed',
@@ -43,6 +284,9 @@
         setMessages(prev => [...prev, newUserMessage]);
         setInputMessage('');
         
+        // Reset to smile and restart idle timer
+        resetToSmile();
+        
         // Simulate bot response
         setTimeout(() => {
           const botResponse = {
@@ -52,6 +296,8 @@
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, botResponse]);
+          // Reset idle timer after bot response
+          resetToSmile();
         }, 1000);
       }
     };
@@ -77,15 +323,39 @@
           flexShrink: 0
         }
       }, [
-        React.createElement('h2', {
-          key: 'title',
+        React.createElement('div', {
+          key: 'title-container',
           style: {
-            margin: 0,
-            fontSize: '24px',
-            fontWeight: 700,
-            color: theme === 'light' ? '#333' : '#fff'
-          }
-        }, '🤖 System Assistant'),
+            display: 'flex',
+            alignItems: 'center',
+            gap: '15px',
+            cursor: 'pointer'
+          },
+          onClick: resetToSmile,
+          onMouseEnter: resetToSmile,
+          onTouchStart: resetToSmile
+        }, [
+          React.createElement('canvas', {
+            key: 'dot-matrix',
+            ref: canvasRef,
+            width: 64,
+            height: 64,
+            style: {
+              width: '32px',
+              height: '32px',
+              imageRendering: 'pixelated'
+            }
+          }),
+          React.createElement('h2', {
+            key: 'title-text',
+            style: {
+              margin: 0,
+              fontSize: '24px',
+              fontWeight: 700,
+              color: theme === 'light' ? '#333' : '#fff'
+            }
+          }, 'System Assistant')
+        ]),
         React.createElement('button', {
           key: 'close',
           onClick: onClose,
@@ -178,8 +448,13 @@
           React.createElement('textarea', {
             key: 'input',
             value: inputMessage,
-            onChange: (e) => setInputMessage(e.target.value),
+            onChange: (e) => {
+              setInputMessage(e.target.value);
+              resetToSmile(); // Reset animation on typing
+            },
             onKeyPress: handleKeyPress,
+            onFocus: resetToSmile,
+            onMouseEnter: resetToSmile,
             placeholder: 'Type your message...',
             style: {
               flex: 1,
