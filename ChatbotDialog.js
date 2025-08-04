@@ -7,15 +7,17 @@
       {
         id: 1,
         type: 'bot',
-        content: 'Hello! I\'m your system assistant. How can I help you today?',
+        content: 'Hello! I\'m your smart assistant. I can flip coins, roll dice, tell jokes, share quotes, give weather updates, and play games with you! Type "help" to see all my features. 🤖',
         timestamp: new Date().toLocaleTimeString()
       }
     ]);
     const [inputMessage, setInputMessage] = React.useState('');
+    const [isLoading, setIsLoading] = React.useState(false);
     const canvasRef = React.useRef(null);
     const animationRef = React.useRef(null);
     const idleTimeoutRef = React.useRef(null);
     const cycleIntervalRef = React.useRef(null);
+    const debounceTimeoutRef = React.useRef(null);
     const [currentAnimation, setCurrentAnimation] = React.useState('smile');
     const [isIdleMode, setIsIdleMode] = React.useState(false);
 
@@ -44,6 +46,7 @@
     };
 
     const generateClockPattern = (animationPhase) => {
+      // Create a fresh base pattern each time
       const basePattern = [
         [0,0,1,1,1,1,0,0],
         [0,1,0,0,0,0,1,0],
@@ -53,15 +56,15 @@
         [1,0,0,0,0,0,0,1],
         [0,1,0,0,0,0,1,0],
         [0,0,1,1,1,1,0,0]
-      ];
+      ].map(row => [...row]); // Deep copy to avoid mutation
 
       // Center of the clock
       const centerX = 3.5;
       const centerY = 3.5;
       
       // Calculate hand positions based on animation phase
-      const hourAngle = (animationPhase * 0.1) % (Math.PI * 2);
-      const minuteAngle = (animationPhase * 0.5) % (Math.PI * 2);
+      const hourAngle = (animationPhase * 0.05) % (Math.PI * 2); // Slower hour hand
+      const minuteAngle = (animationPhase * 0.3) % (Math.PI * 2); // Faster minute hand
       
       // Hour hand (shorter)
       const hourX = Math.round(centerX + Math.cos(hourAngle - Math.PI / 2) * 1.5);
@@ -79,11 +82,11 @@
         basePattern[minuteY][minuteX] = 1;
       }
       
-      // Center dot
-      basePattern[4][4] = 1;
+      // Center dot (make it more prominent)
       basePattern[3][3] = 1;
       basePattern[3][4] = 1;
       basePattern[4][3] = 1;
+      basePattern[4][4] = 1;
       
       return basePattern;
     };
@@ -103,12 +106,6 @@
       const activeColor = theme === 'light' ? '#333' : '#fff';
       const inactiveColor = theme === 'light' ? 'rgba(51,51,51,0.2)' : 'rgba(255,255,255,0.2)';
 
-      // Use dynamic clock pattern if in clock mode
-      let currentPattern = pattern;
-      if (currentAnimation === 'clock') {
-        currentPattern = generateClockPattern(animationPhase);
-      }
-
       for (let row = 0; row < gridSize; row++) {
         for (let col = 0; col < gridSize; col++) {
           const x = startX + col * dotSize + dotSize * 0.1;
@@ -117,7 +114,7 @@
 
           ctx.beginPath();
           
-          if (currentPattern[row][col] === 1) {
+          if (pattern[row][col] === 1) {
             // Active dot with enhanced pulsing animation
             let pulseScale = 1;
             if (currentAnimation === 'smile') {
@@ -142,7 +139,7 @@
       }
     };
 
-    const animatePatternTransition = (fromPattern, toPattern, callback) => {
+    const animatePatternTransition = (fromPattern, toAnimationType, callback) => {
       if (!window.anime) {
         callback();
         return;
@@ -160,6 +157,14 @@
           const canvas = canvasRef.current;
           if (!canvas) return;
           
+          // Get the target pattern
+          let toPattern;
+          if (toAnimationType === 'clock') {
+            toPattern = generateClockPattern(Date.now() * 0.01);
+          } else {
+            toPattern = patterns[toAnimationType];
+          }
+          
           // Interpolate between patterns
           const blendedPattern = fromPattern.map((row, rowIndex) =>
             row.map((dot, colIndex) => {
@@ -176,6 +181,8 @@
     };
 
     const startIdleAnimation = React.useCallback(() => {
+      console.log('⏰ Starting idle animation timer (from manual reset)');
+      
       if (idleTimeoutRef.current) {
         clearTimeout(idleTimeoutRef.current);
       }
@@ -184,41 +191,218 @@
       }
       
       idleTimeoutRef.current = setTimeout(() => {
+        console.log('💤 Idle timeout reached - switching to clock animation (from manual reset)');
         setIsIdleMode(true);
         
-        // Simple transition to clock animation
-        const currentPattern = patterns[currentAnimation];
-        const clockPattern = patterns['clock'];
-        
-        animatePatternTransition(currentPattern, clockPattern, () => {
-          setCurrentAnimation('clock');
+        // Get current pattern at the time of timeout
+        setCurrentAnimation(prevAnimation => {
+          const currentPattern = prevAnimation === 'clock' 
+            ? generateClockPattern(Date.now() * 0.01)
+            : patterns[prevAnimation];
+          
+          animatePatternTransition(currentPattern, 'clock', () => {
+            console.log('🕐 Clock animation started (from manual reset)');
+            setCurrentAnimation('clock');
+          });
+          
+          return prevAnimation; // Don't change animation here, let the transition handle it
         });
       }, 3000);
-    }, [currentAnimation]);
+    }, []); // No dependencies to prevent recreation
 
     const resetToSmile = React.useCallback(() => {
-      if (idleTimeoutRef.current) {
-        clearTimeout(idleTimeoutRef.current);
-      }
-      if (cycleIntervalRef.current) {
-        clearInterval(cycleIntervalRef.current);
+      // Add logging to track when animation resets
+      console.log('🎭 resetToSmile called - Time:', new Date().toLocaleTimeString());
+      
+      // Debounce the reset to prevent too frequent calls
+      if (debounceTimeoutRef.current) {
+        console.log('🚫 resetToSmile debounced - already scheduled');
+        return; // Already scheduled, don't trigger again
       }
       
-      setIsIdleMode(false);
-      
-      if (currentAnimation !== 'smile') {
-        // Smooth transition back to smile
-        const currentPattern = currentAnimation === 'clock' ? patterns['clock'] : patterns[currentAnimation];
-        const smilePattern = patterns['smile'];
+      debounceTimeoutRef.current = setTimeout(() => {
+        console.log('🔄 resetToSmile executing - transitioning to smile');
         
-        animatePatternTransition(currentPattern, smilePattern, () => {
-          setCurrentAnimation('smile');
-          startIdleAnimation();
+        if (idleTimeoutRef.current) {
+          clearTimeout(idleTimeoutRef.current);
+        }
+        if (cycleIntervalRef.current) {
+          clearInterval(cycleIntervalRef.current);
+        }
+        
+        setIsIdleMode(false);
+        
+        // Use functional update to get current animation at time of execution
+        setCurrentAnimation(prevAnimation => {
+          console.log('🎨 Current animation at reset time:', prevAnimation);
+          
+          if (prevAnimation !== 'smile') {
+            console.log('🎨 Animating transition from', prevAnimation, 'to smile');
+            // Smooth transition back to smile
+            const currentPattern = prevAnimation === 'clock' 
+              ? generateClockPattern(Date.now() * 0.01)
+              : patterns[prevAnimation];
+            
+            animatePatternTransition(currentPattern, 'smile', () => {
+              console.log('✅ Animation transition to smile completed');
+              setCurrentAnimation('smile');
+              startIdleAnimation();
+            });
+            
+            return prevAnimation; // Don't change yet, let transition handle it
+          } else {
+            console.log('😊 Already showing smile, just restarting idle timer');
+            startIdleAnimation();
+            return 'smile';
+          }
         });
-      } else {
-        startIdleAnimation();
+        
+        debounceTimeoutRef.current = null;
+      }, 100); // 100ms debounce
+    }, [startIdleAnimation]);
+
+    // Only reset on very deliberate click/touch interactions - NO MOUSE MOVEMENT
+    const handleDeliberateReset = React.useCallback(() => {
+      console.log('👆 Deliberate click/touch detected - resetting to smile');
+      resetToSmile();
+    }, [resetToSmile]);
+
+    // API Functions
+    const getRandomQuote = async () => {
+      try {
+        const response = await fetch('https://api.quotable.io/random');
+        const data = await response.json();
+        return `"${data.content}" - ${data.author}`;
+      } catch (error) {
+        return "Here's a quote for you: 'The only way to do great work is to love what you do.' - Steve Jobs";
       }
-    }, [currentAnimation, startIdleAnimation]);
+    };
+
+    const getDadJoke = async () => {
+      try {
+        const response = await fetch('https://icanhazdadjoke.com/', {
+          headers: { 'Accept': 'application/json' }
+        });
+        const data = await response.json();
+        return data.joke;
+      } catch (error) {
+        return "Why don't scientists trust atoms? Because they make up everything! 😄";
+      }
+    };
+
+    const getWeather = async () => {
+      try {
+        // Using OpenWeatherMap API - you might need to replace with a working API key
+        const response = await fetch('https://api.openweathermap.org/data/2.5/weather?q=Singapore&appid=demo&units=metric');
+        if (!response.ok) {
+          throw new Error('API not available');
+        }
+        const data = await response.json();
+        return `🌤️ Singapore Weather:\n🌡️ Temperature: ${data.main.temp}°C\n💧 Humidity: ${data.main.humidity}%\n☁️ Condition: ${data.weather[0].description}\n${data.main.humidity > 80 ? '🌧️ High chance of rain' : '☀️ Low chance of rain'}`;
+      } catch (error) {
+        // Fallback weather data for Singapore
+        const conditions = ['sunny', 'partly cloudy', 'cloudy', 'light rain'];
+        const condition = conditions[Math.floor(Math.random() * conditions.length)];
+        const temp = Math.floor(Math.random() * 8) + 26; // 26-34°C typical for Singapore
+        const humidity = Math.floor(Math.random() * 30) + 60; // 60-90%
+        return `🌤️ Singapore Weather:\n🌡️ Temperature: ${temp}°C\n💧 Humidity: ${humidity}%\n☁️ Condition: ${condition}\n${humidity > 80 ? '🌧️ High chance of rain' : '☀️ Low chance of rain'}`;
+      }
+    };
+
+    const flipCoin = () => {
+      const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
+      return `🪙 Coin flip result: ${result}!`;
+    };
+
+    const rollDice = () => {
+      const result = Math.floor(Math.random() * 6) + 1;
+      return `🎲 Dice roll result: ${result}!`;
+    };
+
+    const playRockPaperScissors = () => {
+      const choices = ['rock', 'paper', 'scissors'];
+      const userChoice = choices[Math.floor(Math.random() * 3)];
+      const botChoice = choices[Math.floor(Math.random() * 3)];
+      
+      let result;
+      if (userChoice === botChoice) {
+        result = "It's a draw!";
+      } else if (
+        (userChoice === 'rock' && botChoice === 'scissors') ||
+        (userChoice === 'paper' && botChoice === 'rock') ||
+        (userChoice === 'scissors' && botChoice === 'paper')
+      ) {
+        result = "You win! 🎉";
+      } else {
+        result = "You lose! 😅";
+      }
+      
+      return `🎮 Rock Paper Scissors!\nYour choice: ${userChoice}\nMy choice: ${botChoice}\n${result}`;
+    };
+
+    const getHelpMessage = () => {
+      return `🤖 I can help you with these features:\n\n` +
+             `🪙 Flip a coin - just say "flip coin" or "coin flip"\n` +
+             `🎲 Roll a die - say "roll dice" or "dice roll"\n` +
+             `🎮 Play a game - say "rock paper scissors" or "play game"\n` +
+             `😄 Tell a joke - say "tell me a joke" or just "joke"\n` +
+             `💭 Share a quote - say "give me a quote" or just "quote"\n` +
+             `🌤️ Get weather - say "weather" or "what's the weather"\n\n` +
+             `Just type any of these requests and I'll help you out!`;
+    };
+
+    const processUserMessage = async (message) => {
+      const lowerMessage = message.toLowerCase().trim();
+      
+      // Quote requests
+      if (lowerMessage.includes('quote') || lowerMessage.includes('inspire') || lowerMessage.includes('wisdom')) {
+        setIsLoading(true);
+        const quote = await getRandomQuote();
+        setIsLoading(false);
+        return `💭 ${quote}`;
+      }
+      
+      // Joke requests
+      if (lowerMessage.includes('joke') || lowerMessage.includes('funny') || lowerMessage.includes('laugh')) {
+        setIsLoading(true);
+        const joke = await getDadJoke();
+        setIsLoading(false);
+        return `😄 ${joke}`;
+      }
+      
+      // Weather requests
+      if (lowerMessage.includes('weather') || lowerMessage.includes('temperature') || lowerMessage.includes('rain')) {
+        setIsLoading(true);
+        const weather = await getWeather();
+        setIsLoading(false);
+        return weather;
+      }
+      
+      // Coin flip
+      if (lowerMessage.includes('coin') || lowerMessage.includes('flip')) {
+        return flipCoin();
+      }
+      
+      // Dice roll
+      if (lowerMessage.includes('dice') || lowerMessage.includes('roll')) {
+        return rollDice();
+      }
+      
+      // Rock Paper Scissors
+      if (lowerMessage.includes('rock') || lowerMessage.includes('paper') || lowerMessage.includes('scissors') || 
+          lowerMessage.includes('game') || lowerMessage.includes('play')) {
+        return playRockPaperScissors();
+      }
+      
+      // Help requests
+      if (lowerMessage.includes('help') || lowerMessage.includes('what can you do') || 
+          lowerMessage.includes('features') || lowerMessage.includes('commands')) {
+        return getHelpMessage();
+      }
+      
+      // Default response for unrecognized input
+      return `🤔 I'm not sure I understand that. ${getHelpMessage()}`;
+    };
 
     React.useEffect(() => {
       const canvas = canvasRef.current;
@@ -227,7 +411,16 @@
       let animationPhase = 0;
       const animate = () => {
         animationPhase += 0.1;
-        drawDotMatrix(canvas, patterns[currentAnimation], animationPhase);
+        
+        // Get the appropriate pattern based on current animation state
+        let currentPattern;
+        if (currentAnimation === 'clock') {
+          currentPattern = generateClockPattern(animationPhase);
+        } else {
+          currentPattern = patterns[currentAnimation];
+        }
+        
+        drawDotMatrix(canvas, currentPattern, animationPhase);
         animationRef.current = requestAnimationFrame(animate);
       };
 
@@ -242,15 +435,41 @@
 
     React.useEffect(() => {
       if (isOpen) {
+        console.log('🚪 ChatbotDialog opened - initializing smile animation (ONE TIME ONLY)');
         setCurrentAnimation('smile');
         setIsIdleMode(false);
-        startIdleAnimation();
-      } else {
+        
+        // Start idle timer directly here to avoid dependency loop
         if (idleTimeoutRef.current) {
           clearTimeout(idleTimeoutRef.current);
         }
         if (cycleIntervalRef.current) {
           clearInterval(cycleIntervalRef.current);
+        }
+        
+        idleTimeoutRef.current = setTimeout(() => {
+          console.log('💤 Idle timeout reached - switching to clock animation');
+          setIsIdleMode(true);
+          
+          // Simple transition to clock animation
+          const currentPattern = patterns['smile']; // Always start from smile when opening
+          
+          animatePatternTransition(currentPattern, 'clock', () => {
+            console.log('🕐 Clock animation started');
+            setCurrentAnimation('clock');
+          });
+        }, 3000);
+        
+      } else {
+        console.log('🚪 ChatbotDialog closed - cleaning up animations');
+        if (idleTimeoutRef.current) {
+          clearTimeout(idleTimeoutRef.current);
+        }
+        if (cycleIntervalRef.current) {
+          clearInterval(cycleIntervalRef.current);
+        }
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
         }
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
@@ -264,11 +483,14 @@
         if (cycleIntervalRef.current) {
           clearInterval(cycleIntervalRef.current);
         }
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
+        }
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
         }
       };
-    }, [isOpen, startIdleAnimation]);
+    }, [isOpen]); // REMOVED startIdleAnimation dependency to prevent loop
 
     const dialogStyle = {
       position: 'fixed',
@@ -288,33 +510,57 @@
       flexDirection: 'column'
     };
 
-    const handleSendMessage = () => {
+    const handleSendMessage = async () => {
       if (inputMessage.trim()) {
+        const userMessageContent = inputMessage.trim();
         const newUserMessage = {
           id: Date.now(),
           type: 'user',
-          content: inputMessage,
+          content: userMessageContent,
           timestamp: new Date().toLocaleTimeString()
         };
         
         setMessages(prev => [...prev, newUserMessage]);
         setInputMessage('');
         
-        // Reset to smile and restart idle timer
-        resetToSmile();
+        // Show loading message
+        setIsLoading(true);
+        const loadingMessage = {
+          id: Date.now() + 1,
+          type: 'bot',
+          content: '🤔 Thinking...',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, loadingMessage]);
         
-        // Simulate bot response
-        setTimeout(() => {
-          const botResponse = {
-            id: Date.now() + 1,
-            type: 'bot',
-            content: `I received your message: "${inputMessage}". This is a demo response.`,
-            timestamp: new Date().toLocaleTimeString()
-          };
-          setMessages(prev => [...prev, botResponse]);
-          // Reset idle timer after bot response
-          resetToSmile();
-        }, 1000);
+        try {
+          // Process the user message and get smart response
+          const botResponseContent = await processUserMessage(userMessageContent);
+          
+          // Remove loading message and add real response
+          setMessages(prev => {
+            const withoutLoading = prev.filter(msg => msg.id !== loadingMessage.id);
+            return [...withoutLoading, {
+              id: Date.now() + 2,
+              type: 'bot',
+              content: botResponseContent,
+              timestamp: new Date().toLocaleTimeString()
+            }];
+          });
+        } catch (error) {
+          // Handle any errors
+          setMessages(prev => {
+            const withoutLoading = prev.filter(msg => msg.id !== loadingMessage.id);
+            return [...withoutLoading, {
+              id: Date.now() + 2,
+              type: 'bot',
+              content: '😅 Sorry, I encountered an issue. Please try again!',
+              timestamp: new Date().toLocaleTimeString()
+            }];
+          });
+        }
+        
+        setIsLoading(false);
       }
     };
 
@@ -325,7 +571,9 @@
       }
     };
 
-    return React.createElement('div', { style: dialogStyle }, [
+    return React.createElement('div', { 
+      style: dialogStyle
+    }, [
       // Header
       React.createElement('div', {
         key: 'header',
@@ -345,11 +593,20 @@
             display: 'flex',
             alignItems: 'center',
             gap: '15px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            padding: '8px',
+            borderRadius: '8px',
+            transition: 'background-color 0.2s',
+            userSelect: 'none'
           },
-          onClick: resetToSmile,
-          onMouseEnter: resetToSmile,
-          onTouchStart: resetToSmile
+          onClick: handleDeliberateReset,
+          onTouchStart: handleDeliberateReset,
+          onMouseEnter: (e) => {
+            e.target.style.backgroundColor = theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
+          },
+          onMouseLeave: (e) => {
+            e.target.style.backgroundColor = 'transparent';
+          }
         }, [
           React.createElement('canvas', {
             key: 'dot-matrix',
@@ -370,7 +627,7 @@
               fontWeight: 700,
               color: theme === 'light' ? '#333' : '#fff'
             }
-          }, 'System Assistant')
+          }, 'System Assistant 👆')
         ]),
         React.createElement('button', {
           key: 'close',
@@ -464,14 +721,12 @@
           React.createElement('textarea', {
             key: 'input',
             value: inputMessage,
+            disabled: isLoading,
             onChange: (e) => {
               setInputMessage(e.target.value);
-              resetToSmile(); // Reset animation on typing
             },
             onKeyPress: handleKeyPress,
-            onFocus: resetToSmile,
-            onMouseEnter: resetToSmile,
-            placeholder: 'Type your message...',
+            placeholder: isLoading ? 'Processing...' : 'Type your message...',
             style: {
               flex: 1,
               padding: '12px',
@@ -491,19 +746,19 @@
           React.createElement('button', {
             key: 'send',
             onClick: handleSendMessage,
-            disabled: !inputMessage.trim(),
+            disabled: !inputMessage.trim() || isLoading,
             style: {
               width: '44px',
               height: '44px',
               borderRadius: '50%',
               border: 'none',
-              backgroundColor: inputMessage.trim() 
+              backgroundColor: (inputMessage.trim() && !isLoading)
                 ? (theme === 'light' ? 'rgb(180, 200, 220)' : 'rgb(210, 230, 250)')
                 : (theme === 'light' ? '#ddd' : '#444'),
-              color: inputMessage.trim() 
+              color: (inputMessage.trim() && !isLoading)
                 ? (theme === 'light' ? '#fff' : '#1a1a2e')
                 : (theme === 'light' ? '#999' : '#666'),
-              cursor: inputMessage.trim() ? 'pointer' : 'not-allowed',
+              cursor: (inputMessage.trim() && !isLoading) ? 'pointer' : 'not-allowed',
               fontSize: '18px',
               display: 'flex',
               alignItems: 'center',
@@ -511,7 +766,7 @@
               transition: 'all 0.3s',
               flexShrink: 0
             }
-          }, '📤')
+          }, isLoading ? '⏳' : '📤')
         ])
       ])
     ]);
