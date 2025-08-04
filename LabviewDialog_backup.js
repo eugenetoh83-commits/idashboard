@@ -1011,8 +1011,8 @@
       return material;
     };
 
-    // COMMENTED OUT DUPLICATE FUNCTION - const createFallbackGeometry = (scene) => {
-    /*
+    const createFallbackGeometry = (scene) => {
+      
       img.onload = function() {
         console.log(`✅ Image loaded successfully: ${img.width}x${img.height}`);
         
@@ -1104,8 +1104,8 @@
       };
       
       // Start loading the image with better path handling
-      console.log(`🔄 Loading image: DISABLED_FOR_DEBUG.jpeg`);
-      img.src = 'DISABLED_FOR_DEBUG.jpeg'; // Force failure to show fallback patterns
+      console.log(`🔄 Loading image: img/OSMSingaporeMapJan2010.jpeg`);
+      img.src = 'img/OSMSingaporeMapJan2010.jpeg';
       
       // Create initial material with brighter loading screen
       ctx.fillStyle = `hsl(${(row * 60 + col * 30) % 360}, 70%, 70%)`;
@@ -1139,7 +1139,6 @@
       console.log(`📦 Created initial material for segment [${row},${col}]`);
       return material;
     };
-    */
 
     const createFallbackGeometry = (scene) => {
       console.log('🏗️ Creating fallback room geometry');
