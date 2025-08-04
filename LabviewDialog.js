@@ -120,8 +120,22 @@
       return new Promise((resolve, reject) => {
         console.log(`🔄 Loading model: ${config.path}`);
         
-        if (!window.THREE || !window.THREE.GLTFLoader) {
-          console.error('❌ GLTFLoader not available');
+        // Enhanced GLTFLoader availability check
+        console.log('🔍 Checking Three.js components:');
+        console.log('  - THREE available:', !!window.THREE);
+        console.log('  - THREE.GLTFLoader available:', !!(window.THREE && window.THREE.GLTFLoader));
+        console.log('  - Available THREE components:', window.THREE ? Object.keys(window.THREE).filter(k => k.includes('Loader')) : 'None');
+        
+        if (!window.THREE) {
+          console.error('❌ Three.js not loaded');
+          createFallbackGeometry(scene);
+          resolve();
+          return;
+        }
+        
+        if (!window.THREE.GLTFLoader) {
+          console.error('❌ GLTFLoader not available in Three.js');
+          console.log('💡 Trying to create GLTFLoader manually...');
           createFallbackGeometry(scene);
           resolve();
           return;
