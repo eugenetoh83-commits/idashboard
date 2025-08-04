@@ -607,6 +607,9 @@
             case 'box':
               object3D = createBox(obj.properties || {});
               break;
+            case 'projector':
+              object3D = createProjector(obj.properties || {});
+              break;
             default:
               console.warn(`⚠️ Unknown object type: ${obj.type}`);
               object3D = createBox({ color: 0xff0000 }); // Red box as fallback
@@ -629,13 +632,15 @@
     const createDesk = (props) => {
       const group = new THREE.Group();
       const color = parseColor(props.color, 0x8B4513);
-      const material = new THREE.MeshLambertMaterial({ color });
+      const legColor = parseColor(props.legColor, color); // Use legColor if provided, otherwise same as desktop
+      const desktopMaterial = new THREE.MeshLambertMaterial({ color });
+      const legMaterial = new THREE.MeshLambertMaterial({ color: legColor });
       
-      console.log(`🪑 Creating desk with color: ${color.toString(16)} (from ${props.color})`);
+      console.log(`🪑 Creating desk with desktop color: ${color.toString(16)} and leg color: ${legColor.toString(16)}`);
       
       // Desktop
       const topGeometry = new THREE.BoxGeometry(props.width || 1.5, 0.05, props.depth || 0.8);
-      const desktop = new THREE.Mesh(topGeometry, material);
+      const desktop = new THREE.Mesh(topGeometry, desktopMaterial);
       desktop.position.y = 0.75;
       desktop.castShadow = true;
       desktop.receiveShadow = true;
@@ -651,11 +656,57 @@
       ];
       
       positions.forEach(pos => {
-        const leg = new THREE.Mesh(legGeometry, material);
+        const leg = new THREE.Mesh(legGeometry, legMaterial);
         leg.position.set(...pos);
         leg.castShadow = true;
         group.add(leg);
       });
+      
+      return group;
+    };
+
+    const createProjector = (props) => {
+      const group = new THREE.Group();
+      const color = parseColor(props.color, 0x333333);
+      
+      // Create the main projector body
+      const bodyGeometry = new THREE.BoxGeometry(0.4, 0.2, 0.3);
+      const bodyMaterial = new THREE.MeshPhongMaterial({ color });
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      body.castShadow = true;
+      group.add(body);
+      
+      // Create the lens
+      const lensGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.1, 16);
+      const lensMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
+      const lens = new THREE.Mesh(lensGeometry, lensMaterial);
+      lens.rotation.x = Math.PI / 2;
+      lens.position.set(0, -0.05, 0.2);
+      group.add(lens);
+      
+      // Create mounting bracket
+      const mountGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8);
+      const mountMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
+      const mount = new THREE.Mesh(mountGeometry, mountMaterial);
+      mount.position.set(0, 0.25, 0);
+      group.add(mount);
+      
+      // Add a spotlight to represent the projection
+      const spotlight = new THREE.SpotLight(0xffffff, 1);
+      spotlight.position.set(0, 0, 0);
+      spotlight.target.position.set(0, -1, 1);
+      spotlight.angle = props.angle || Math.PI / 6;
+      spotlight.penumbra = 0.1;
+      spotlight.decay = 1;
+      spotlight.distance = 10;
+      spotlight.castShadow = true;
+      
+      if (props.mapTexture) {
+        spotlight.map = new THREE.TextureLoader().load(props.mapTexture);
+      }
+      
+      group.add(spotlight);
+      group.add(spotlight.target);
       
       return group;
     };
