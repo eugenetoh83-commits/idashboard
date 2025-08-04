@@ -140,14 +140,42 @@
             model.scale.set(...config.scale);
             model.rotation.set(...config.rotation);
             
-            // Enable shadows
+            // Enhanced debugging - show model structure
+            console.log('📦 Model Structure Analysis:');
+            console.log('📐 Total children:', model.children.length);
+            
+            let meshCount = 0;
+            let materialCount = 0;
+            const materialNames = new Set();
+            const meshNames = [];
+            
+            // Enable shadows and collect debug info
             model.traverse((child) => {
               if (child.isMesh) {
+                meshCount++;
                 child.castShadow = true;
                 child.receiveShadow = true;
-                console.log('🎨 Mesh found:', child.name || 'unnamed', child.material?.name || 'no material');
+                
+                const meshName = child.name || `Mesh_${meshCount}`;
+                const materialName = child.material?.name || 'unnamed_material';
+                const vertexCount = child.geometry?.attributes?.position?.count || 0;
+                
+                meshNames.push(meshName);
+                materialNames.add(materialName);
+                
+                console.log(`  🏗️ Mesh: "${meshName}" - Material: "${materialName}" - Vertices: ${vertexCount}`);
+                
+                // Check for door/window keywords
+                const name = meshName.toLowerCase();
+                if (name.includes('door') || name.includes('window') || name.includes('frame') || name.includes('glass')) {
+                  console.log(`    🚪 Found architectural element: ${meshName}`);
+                }
               }
             });
+            
+            console.log(`📊 Summary: ${meshCount} meshes, ${materialNames.size} unique materials`);
+            console.log('🎨 Materials:', Array.from(materialNames));
+            console.log('🏗️ Mesh names:', meshNames);
             
             scene.add(model);
             console.log('🎯 Model added to scene');
