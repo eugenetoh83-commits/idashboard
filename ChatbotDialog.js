@@ -42,6 +42,26 @@
         [1,0,0,0,0,0,0,1],
         [0,1,0,0,0,0,1,0],
         [0,0,1,1,1,1,0,0]
+      ],
+      heart: [
+        [0,1,1,0,0,1,1,0],
+        [1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1],
+        [0,1,1,1,1,1,1,0],
+        [0,0,1,1,1,1,0,0],
+        [0,0,0,1,1,0,0,0],
+        [0,0,0,0,0,0,0,0]
+      ],
+      fish: [
+        [0,0,0,0,0,0,0,0],
+        [0,0,1,1,1,0,0,0],
+        [0,1,1,1,1,1,0,1],
+        [1,1,1,1,1,1,1,0],
+        [0,1,1,1,1,1,0,1],
+        [0,0,1,1,1,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0]
       ]
     };
 
@@ -91,6 +111,143 @@
       return basePattern;
     };
 
+    const generateHeartPattern = (animationPhase) => {
+      // Create a base heart pattern
+      const basePattern = [
+        [0,1,1,0,0,1,1,0],
+        [1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1],
+        [0,1,1,1,1,1,1,0],
+        [0,0,1,1,1,1,0,0],
+        [0,0,0,1,1,0,0,0],
+        [0,0,0,0,0,0,0,0]
+      ].map(row => [...row]); // Deep copy to avoid mutation
+
+      // Create pulsing effect - make the heart grow and shrink
+      const pulseIntensity = Math.sin(animationPhase * 1.5) * 0.5 + 0.5; // 0 to 1
+      
+      // Add sparkle effect around the heart
+      const sparklePositions = [
+        [0, 0], [0, 7], [7, 0], [7, 7], // corners
+        [1, 0], [0, 1], [6, 0], [7, 1], [1, 7], [0, 6], [6, 7], [7, 6] // edge sparkles
+      ];
+      
+      sparklePositions.forEach(([row, col], index) => {
+        // Each sparkle twinkles at different times
+        const sparklePhase = animationPhase * 2 + index * 0.8;
+        const sparkleChance = (Math.sin(sparklePhase) + 1) * 0.5; // 0 to 1
+        
+        if (sparkleChance > 0.7) { // Only show sparkle 30% of the time
+          basePattern[row][col] = 1;
+        }
+      });
+      
+      // Add a gentle glow effect to the heart outline
+      if (pulseIntensity > 0.8) {
+        // Add extra dots around the heart when pulsing is strong
+        const glowPositions = [
+          [0, 2], [0, 5], // top glow
+          [1, 0], [1, 7], // side glow
+          [2, 0], [2, 7], // side glow
+          [5, 1], [5, 6], // bottom side glow
+        ];
+        
+        glowPositions.forEach(([row, col]) => {
+          if (Math.random() > 0.5) { // 50% chance for each glow dot
+            basePattern[row][col] = 1;
+          }
+        });
+      }
+      
+      return basePattern;
+    };
+
+    const generateFishPattern = (animationPhase) => {
+      // Create a base fish pattern
+      const basePattern = [
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0]
+      ].map(row => [...row]); // Deep copy to avoid mutation
+
+      // Swimming motion - fish moves horizontally with gentle vertical bobbing
+      const swimPhase = animationPhase * 1.5;
+      const fishX = Math.round(3 + Math.sin(swimPhase * 0.8) * 2); // Horizontal swimming
+      const fishY = Math.round(3 + Math.sin(swimPhase * 1.2) * 0.8); // Gentle vertical bobbing
+      
+      // Fish body shape (relative to fish center)
+      const fishBody = [
+        [-1, -2], [-1, -1], [-1, 0], // Head
+        [0, -2], [0, -1], [0, 0], [0, 1], // Body
+        [1, -1], [1, 0], // Mid body
+        [2, 0] // Tail base
+      ];
+      
+      // Animated tail fin (swims back and forth)
+      const tailPhase = animationPhase * 3;
+      const tailOffset = Math.sin(tailPhase) > 0 ? 1 : -1;
+      const tailFin = [
+        [2, tailOffset], // Tail fin
+        [3, tailOffset * 2] // Tail tip
+      ];
+      
+      // Draw fish body
+      fishBody.forEach(([dx, dy]) => {
+        const x = fishX + dx;
+        const y = fishY + dy;
+        if (x >= 0 && x < 8 && y >= 0 && y < 8) {
+          basePattern[y][x] = 1;
+        }
+      });
+      
+      // Draw animated tail
+      tailFin.forEach(([dx, dy]) => {
+        const x = fishX + dx;
+        const y = fishY + dy;
+        if (x >= 0 && x < 8 && y >= 0 && y < 8) {
+          basePattern[y][x] = 1;
+        }
+      });
+      
+      // Add swimming bubbles
+      const bubbleIntensity = Math.sin(animationPhase * 2) * 0.5 + 0.5;
+      if (bubbleIntensity > 0.7) {
+        const bubblePositions = [
+          [1, 1], [0, 2], [1, 6], [0, 5], // Top bubbles
+          [6, 1], [7, 3], [6, 6], [7, 4]  // Bottom bubbles
+        ];
+        
+        bubblePositions.forEach(([row, col], index) => {
+          // Each bubble appears at different times
+          const bubblePhase = animationPhase * 3 + index * 0.5;
+          if ((Math.sin(bubblePhase) + 1) * 0.5 > 0.6) {
+            basePattern[row][col] = 1;
+          }
+        });
+      }
+      
+      // Add water ripples
+      const ripplePhase = animationPhase * 4;
+      const ripplePositions = [
+        [0, 0], [0, 7], [7, 0], [7, 7] // Corner ripples
+      ];
+      
+      ripplePositions.forEach(([row, col], index) => {
+        const rippleTime = ripplePhase + index * 1.5;
+        if (Math.sin(rippleTime) > 0.8) {
+          basePattern[row][col] = 1;
+        }
+      });
+      
+      return basePattern;
+    };
+
     const drawDotMatrix = (canvas, pattern, animationPhase = 0) => {
       const ctx = canvas.getContext('2d');
       const canvasWidth = canvas.width;
@@ -123,6 +280,12 @@
             } else if (currentAnimation === 'clock') {
               // Steady glow for clock
               pulseScale = 1 + Math.sin(animationPhase * 1.5) * 0.1;
+            } else if (currentAnimation === 'heart') {
+              // Romantic pulsing for heart with color variation
+              pulseScale = 1 + Math.sin(animationPhase * 1.8) * 0.2;
+            } else if (currentAnimation === 'fish') {
+              // Dynamic motion effect for fish
+              pulseScale = 1 + Math.sin(animationPhase * 2.5 + row * 0.5) * 0.15;
             }
             
             ctx.arc(x + dotRadius, y + dotRadius, dotRadius * pulseScale, 0, 2 * Math.PI);
@@ -161,6 +324,10 @@
           let toPattern;
           if (toAnimationType === 'clock') {
             toPattern = generateClockPattern(Date.now() * 0.01);
+          } else if (toAnimationType === 'heart') {
+            toPattern = generateHeartPattern(Date.now() * 0.01);
+          } else if (toAnimationType === 'fish') {
+            toPattern = generateFishPattern(Date.now() * 0.01);
           } else {
             toPattern = patterns[toAnimationType];
           }
@@ -191,18 +358,25 @@
       }
       
       idleTimeoutRef.current = setTimeout(() => {
-        console.log('💤 Idle timeout reached - switching to clock animation (from manual reset)');
+        console.log('💤 Idle timeout reached - switching to random idle animation (from manual reset)');
         setIsIdleMode(true);
+        
+        // Randomly choose between clock, heart, and fish animations
+        const idleAnimations = ['clock', 'heart', 'fish'];
+        const randomAnimation = idleAnimations[Math.floor(Math.random() * idleAnimations.length)];
+        console.log(`🎲 Randomly selected ${randomAnimation} animation`);
         
         // Get current pattern at the time of timeout
         setCurrentAnimation(prevAnimation => {
           const currentPattern = prevAnimation === 'clock' 
             ? generateClockPattern(Date.now() * 0.01)
+            : prevAnimation === 'heart'
+            ? generateHeartPattern(Date.now() * 0.01)
             : patterns[prevAnimation];
           
-          animatePatternTransition(currentPattern, 'clock', () => {
-            console.log('🕐 Clock animation started (from manual reset)');
-            setCurrentAnimation('clock');
+          animatePatternTransition(currentPattern, randomAnimation, () => {
+            console.log(`🎨 ${randomAnimation === 'clock' ? '🕐' : randomAnimation === 'heart' ? '💖' : '�'} ${randomAnimation} animation started (from manual reset)`);
+            setCurrentAnimation(randomAnimation);
           });
           
           return prevAnimation; // Don't change animation here, let the transition handle it
@@ -241,6 +415,10 @@
             // Smooth transition back to smile
             const currentPattern = prevAnimation === 'clock' 
               ? generateClockPattern(Date.now() * 0.01)
+              : prevAnimation === 'heart'
+              ? generateHeartPattern(Date.now() * 0.01)
+              : prevAnimation === 'fish'
+              ? generateFishPattern(Date.now() * 0.01)
               : patterns[prevAnimation];
             
             animatePatternTransition(currentPattern, 'smile', () => {
@@ -416,6 +594,10 @@
         let currentPattern;
         if (currentAnimation === 'clock') {
           currentPattern = generateClockPattern(animationPhase);
+        } else if (currentAnimation === 'heart') {
+          currentPattern = generateHeartPattern(animationPhase);
+        } else if (currentAnimation === 'fish') {
+          currentPattern = generateFishPattern(animationPhase);
         } else {
           currentPattern = patterns[currentAnimation];
         }
@@ -448,15 +630,20 @@
         }
         
         idleTimeoutRef.current = setTimeout(() => {
-          console.log('💤 Idle timeout reached - switching to clock animation');
+          console.log('💤 Idle timeout reached - switching to random idle animation');
           setIsIdleMode(true);
           
-          // Simple transition to clock animation
+          // Randomly choose between clock, heart, and fish animations
+          const idleAnimations = ['clock', 'heart', 'fish'];
+          const randomAnimation = idleAnimations[Math.floor(Math.random() * idleAnimations.length)];
+          console.log(`🎲 Randomly selected ${randomAnimation} animation`);
+          
+          // Simple transition to random idle animation
           const currentPattern = patterns['smile']; // Always start from smile when opening
           
-          animatePatternTransition(currentPattern, 'clock', () => {
-            console.log('🕐 Clock animation started');
-            setCurrentAnimation('clock');
+          animatePatternTransition(currentPattern, randomAnimation, () => {
+            console.log(`🎨 ${randomAnimation === 'clock' ? '🕐' : randomAnimation === 'heart' ? '💖' : '�'} ${randomAnimation} animation started`);
+            setCurrentAnimation(randomAnimation);
           });
         }, 3000);
         

@@ -3,7 +3,7 @@
 const baseNodes = [
   { label: "NETWORK", staticIcon: "img/cloud-network-whitebg.png", gifIcon: "img/cloud-network.gif" },
   { label: "KEY", staticIcon: "img/encryption-whitebg.png", gifIcon: "img/encryption.gif" },
-  { label: "STATUS", staticIcon: "img/heartbeat-whitebg.png", gifIcon: "img/heartbeat.gif" },
+  { label: "CHATBOT", staticIcon: "img/ai-assistant.png", gifIcon: "img/ai-assistant.gif" },
   { label: "HOME", staticIcon: "img/home-whitebg.png", gifIcon: "img/home.gif" },
   { label: "SYSTEM", staticIcon: "img/line-chart-whitebg.png", gifIcon: "img/line-chart.gif" },
   { label: "SETTINGS", staticIcon: "img/settings-whitebg.png", gifIcon: "img/settings.gif" },
@@ -416,8 +416,8 @@ function Dashboard({ backgroundType, onSystemClick, onStatusClick }) {
                 if (node.label === 'SYSTEM') {
                   onSystemClick();
                 }
-                // Handle STATUS node click - toggle ChatbotDialog
-                if (node.label === 'STATUS') {
+                // Handle CHATBOT node click - toggle ChatbotDialog
+                if (node.label === 'CHATBOT') {
                   onStatusClick();
                 }
               }}
@@ -432,7 +432,7 @@ function Dashboard({ backgroundType, onSystemClick, onStatusClick }) {
                 alignItems: 'center',
                 pointerEvents: 'auto', // Allow mouse events
                 zIndex: 3,
-                cursor: (node.label === 'SYSTEM' || node.label === 'STATUS') ? 'pointer' : 'default',
+                cursor: (node.label === 'SYSTEM' || node.label === 'CHATBOT') ? 'pointer' : 'default',
               }}
             >
               {/* Animated border overlay */}
