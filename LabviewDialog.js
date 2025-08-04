@@ -98,21 +98,92 @@
       };
     };
 
-    // Model loading functions
+    // Smart model loading - try lab.glb first, then fallback to procedural generation
     const loadModelsFromConfig = async (scene) => {
       try {
-        console.log('🔍 Loading models configuration...');
-        const response = await fetch('models.json');
-        const modelsConfig = await response.json();
-        console.log('📋 Models config loaded:', modelsConfig);
+        console.log('🔍 Checking for lab.glb file...');
         
-        for (const modelConfig of modelsConfig) {
-          await loadModel(scene, modelConfig);
+        // First try to load lab.glb
+        const labModelExists = await checkIfLabModelExists();
+        
+        if (labModelExists) {
+          console.log('✅ Found lab.glb - loading 3D model');
+          await loadLabModel(scene);
+        } else {
+          console.log('📋 No lab.glb found - generating procedural room from JSON config');
+          await generateProceduralRoom(scene);
         }
       } catch (error) {
-        console.error('❌ Error loading models config:', error);
-        // Create fallback geometry if models fail to load
-        createFallbackGeometry(scene);
+        console.error('❌ Error in model loading system:', error);
+        // Ultimate fallback - simple room
+        createBasicRoom(scene);
+      }
+    };
+
+    // Check if lab.glb exists
+    const checkIfLabModelExists = async () => {
+      try {
+        const labPath = 'https://raw.githubusercontent.com/eugenetoh83-commits/idashboard/main/model/lab.glb';
+        const response = await fetch(labPath, { method: 'HEAD' });
+        return response.ok;
+      } catch (error) {
+        console.log('🔍 lab.glb not found, will use procedural generation');
+        return false;
+      }
+    };
+
+    // Load the lab.glb model
+    const loadLabModel = async (scene) => {
+      const config = {
+        path: 'https://raw.githubusercontent.com/eugenetoh83-commits/idashboard/main/model/lab.glb',
+        position: [0, 0, 0],
+        scale: [1, 1, 1],
+        rotation: [0, 0, 0]
+      };
+      return await loadModel(scene, config);
+    };
+
+    // Generate procedural room based on room-config.json
+    const generateProceduralRoom = async (scene) => {
+      try {
+        console.log('📐 Loading room configuration...');
+        const response = await fetch('room-config.json');
+        const roomConfig = await response.json();
+        console.log('🏗️ Room config loaded:', roomConfig);
+        
+        // Create the room structure
+        createProceduralRoom(scene, roomConfig);
+        
+        // Add objects from config
+        addObjectsFromConfig(scene, roomConfig.objects || []);
+        
+      } catch (error) {
+        console.error('❌ Error loading room config:', error);
+        console.log('🔧 Using default room configuration');
+        
+        // Default room config if JSON fails
+        const defaultConfig = {
+          room: {
+            width: 8,
+            height: 4,
+            depth: 8,
+            wallColor: 0xe0e0e0,
+            floorColor: 0xf5f5f5,
+            ceilingColor: 0xe0e0e0
+          },
+          objects: [
+            {
+              type: "monitor",
+              position: [0, 1, -2],
+              rotation: [0, 0, 0],
+              scale: [1, 1, 1],
+              properties: { screenColor: 0x001133 }
+            }
+          ]
+        };
+        
+        createProceduralRoom(scene, defaultConfig);
+        addObjectsFromConfig(scene, defaultConfig.objects);
       }
     };
 
@@ -214,9 +285,6 @@
             
             scene.add(model);
             
-            // Add monitors to the scene after model is loaded
-            addMonitorsToScene(scene);
-            
             console.log('🎯 Model added to scene');
             resolve(model);
           },
@@ -232,6 +300,402 @@
           }
         );
       });
+    };
+
+    // Helper function to parse color values from JSON
+    const parseColor = (colorValue, defaultColor = 0x888888) => {
+      if (typeof colorValue === 'string') {
+        // Remove quotes and convert hex string to number
+        const cleanColor = colorValue.replace(/['"]/g, '');
+        if (cleanColor.startsWith('0x')) {
+          return parseInt(cleanColor, 16);
+        } else if (cleanColor.startsWith('#')) {
+          return parseInt(cleanColor.substring(1), 16);
+        } else {
+          // Try parsing as regular hex
+          return parseInt(cleanColor, 16);
+        }
+      } else if (typeof colorValue === 'number') {
+        return colorValue;
+      }
+      return defaultColor;
+    };
+
+    // Advanced material creation with texture support
+    const createMaterial = (materialConfig = {}) => {
+      const color = parseColor(materialConfig.color, 0x888888);
+      const materialType = materialConfig.type || 'lambert';
+      
+      let material;
+      
+      switch (materialType.toLowerCase()) {
+        case 'phong':
+          material = new THREE.MeshPhongMaterial({ 
+            color: color,
+            shininess: materialConfig.shininess || 30,
+            specular: parseColor(materialConfig.specular, 0x111111)
+          });
+          break;
+        case 'standard':
+          material = new THREE.MeshStandardMaterial({ 
+            color: color,
+            roughness: materialConfig.roughness || 0.5,
+            metalness: materialConfig.metalness || 0.0
+          });
+          break;
+        case 'basic':
+          material = new THREE.MeshBasicMaterial({ color: color });
+          break;
+        default: // 'lambert'
+          material = new THREE.MeshLambertMaterial({ color: color });
+      }
+      
+      // Add texture if specified
+      if (materialConfig.texture && materialConfig.texture !== 'none') {
+        const textureLoader = new THREE.TextureLoader();
+        try {
+          material.map = textureLoader.load(materialConfig.texture);
+          if (materialConfig.textureRepeat) {
+            material.map.wrapS = THREE.RepeatWrapping;
+            material.map.wrapT = THREE.RepeatWrapping;
+            material.map.repeat.set(materialConfig.textureRepeat[0] || 1, materialConfig.textureRepeat[1] || 1);
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to load texture:', materialConfig.texture);
+        }
+      }
+      
+      // Add emissive properties if specified
+      if (materialConfig.emissive) {
+        material.emissive = new THREE.Color(parseColor(materialConfig.emissive, 0x000000));
+        material.emissiveIntensity = materialConfig.emissiveIntensity || 0.1;
+      }
+      
+      return material;
+    };
+
+    // Create procedural room based on JSON configuration
+    const createProceduralRoom = (scene, config) => {
+      console.log('🏗️ Creating procedural room with config:', config.room);
+      
+      const room = config.room;
+      const width = room.width || 8;
+      const height = room.height || 4;
+      const depth = room.depth || 8;
+      
+      // Parse colors properly from JSON strings
+      const wallColor = parseColor(room.wallColor, 0xe0e0e0);
+      const floorColor = parseColor(room.floorColor, 0xf5f5f5);
+      const ceilingColor = parseColor(room.ceilingColor, 0xe0e0e0);
+      
+      console.log('🎨 Parsed colors:');
+      console.log(`  Wall: ${wallColor.toString(16)} (from ${room.wallColor})`);
+      console.log(`  Floor: ${floorColor.toString(16)} (from ${room.floorColor})`);
+      console.log(`  Ceiling: ${ceilingColor.toString(16)} (from ${room.ceilingColor})`);
+      
+      // Enhanced materials with texture support
+      const wallMaterial = createMaterial({
+        color: wallColor,
+        type: room.wallMaterial?.type || 'lambert',
+        texture: room.wallMaterial?.texture,
+        textureRepeat: room.wallMaterial?.textureRepeat,
+        roughness: room.wallMaterial?.roughness,
+        metalness: room.wallMaterial?.metalness
+      });
+      
+      const floorMaterial = createMaterial({
+        color: floorColor,
+        type: room.floorMaterial?.type || 'lambert',
+        texture: room.floorMaterial?.texture,
+        textureRepeat: room.floorMaterial?.textureRepeat,
+        roughness: room.floorMaterial?.roughness,
+        metalness: room.floorMaterial?.metalness
+      });
+      
+      const ceilingMaterial = createMaterial({
+        color: ceilingColor,
+        type: room.ceilingMaterial?.type || 'lambert',
+        texture: room.ceilingMaterial?.texture,
+        textureRepeat: room.ceilingMaterial?.textureRepeat,
+        roughness: room.ceilingMaterial?.roughness,
+        metalness: room.ceilingMaterial?.metalness
+      });
+      
+      // Floor
+      const floorGeometry = new THREE.PlaneGeometry(width, depth);
+      const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+      
+      // Ceiling
+      const ceilingGeometry = new THREE.PlaneGeometry(width, depth);
+      const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+      ceiling.position.y = height;
+      ceiling.rotation.x = Math.PI / 2;
+      ceiling.receiveShadow = true;
+      scene.add(ceiling);
+      
+      // Walls
+      // Back wall
+      const backWallGeometry = new THREE.PlaneGeometry(width, height);
+      const backWall = new THREE.Mesh(backWallGeometry, wallMaterial);
+      backWall.position.set(0, height / 2, -depth / 2);
+      backWall.receiveShadow = true;
+      scene.add(backWall);
+      
+      // Front wall (with optional door opening)
+      if (room.hasDoor) {
+        createWallWithDoor(scene, width, height, depth / 2, wallMaterial, room.doorWidth || 1.5, room.doorHeight || 2.5);
+      } else {
+        const frontWallGeometry = new THREE.PlaneGeometry(width, height);
+        const frontWall = new THREE.Mesh(frontWallGeometry, wallMaterial);
+        frontWall.position.set(0, height / 2, depth / 2);
+        frontWall.rotation.y = Math.PI;
+        frontWall.receiveShadow = true;
+        scene.add(frontWall);
+      }
+      
+      // Left wall
+      const leftWallGeometry = new THREE.PlaneGeometry(depth, height);
+      const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+      leftWall.position.set(-width / 2, height / 2, 0);
+      leftWall.rotation.y = Math.PI / 2;
+      leftWall.receiveShadow = true;
+      scene.add(leftWall);
+      
+      // Right wall
+      const rightWallGeometry = new THREE.PlaneGeometry(depth, height);
+      const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+      rightWall.position.set(width / 2, height / 2, 0);
+      rightWall.rotation.y = -Math.PI / 2;
+      rightWall.receiveShadow = true;
+      scene.add(rightWall);
+      
+      console.log(`✅ Procedural room created: ${width}x${depth}x${height}`);
+    };
+
+    // Create wall with door opening
+    const createWallWithDoor = (scene, wallWidth, wallHeight, wallZ, material, doorWidth, doorHeight) => {
+      const segmentWidth = (wallWidth - doorWidth) / 2;
+      
+      // Left wall segment
+      const leftGeometry = new THREE.PlaneGeometry(segmentWidth, wallHeight);
+      const leftWall = new THREE.Mesh(leftGeometry, material);
+      leftWall.position.set(-wallWidth / 2 + segmentWidth / 2, wallHeight / 2, wallZ);
+      leftWall.rotation.y = Math.PI;
+      scene.add(leftWall);
+      
+      // Right wall segment
+      const rightGeometry = new THREE.PlaneGeometry(segmentWidth, wallHeight);
+      const rightWall = new THREE.Mesh(rightGeometry, material);
+      rightWall.position.set(wallWidth / 2 - segmentWidth / 2, wallHeight / 2, wallZ);
+      rightWall.rotation.y = Math.PI;
+      scene.add(rightWall);
+      
+      // Top segment above door
+      const topHeight = wallHeight - doorHeight;
+      const topGeometry = new THREE.PlaneGeometry(doorWidth, topHeight);
+      const topWall = new THREE.Mesh(topGeometry, material);
+      topWall.position.set(0, wallHeight - topHeight / 2, wallZ);
+      topWall.rotation.y = Math.PI;
+      scene.add(topWall);
+    };
+
+    // Add objects from configuration
+    const addObjectsFromConfig = (scene, objects) => {
+      console.log('🎯 Adding objects from configuration:', objects.length, 'items');
+      
+      objects.forEach((obj, index) => {
+        try {
+          let object3D = null;
+          
+          switch (obj.type.toLowerCase()) {
+            case 'monitor':
+              object3D = createMonitor(obj.properties || {});
+              break;
+            case 'desk':
+              object3D = createDesk(obj.properties || {});
+              break;
+            case 'chair':
+              object3D = createChair(obj.properties || {});
+              break;
+            case 'cabinet':
+              object3D = createCabinet(obj.properties || {});
+              break;
+            case 'light':
+              object3D = createLight(obj.properties || {});
+              break;
+            case 'box':
+              object3D = createBox(obj.properties || {});
+              break;
+            default:
+              console.warn(`⚠️ Unknown object type: ${obj.type}`);
+              object3D = createBox({ color: 0xff0000 }); // Red box as fallback
+          }
+          
+          if (object3D) {
+            object3D.position.set(...(obj.position || [0, 0, 0]));
+            object3D.rotation.set(...(obj.rotation || [0, 0, 0]));
+            object3D.scale.set(...(obj.scale || [1, 1, 1]));
+            scene.add(object3D);
+            console.log(`  ✅ Added ${obj.type} at [${obj.position?.join(', ') || '0,0,0'}]`);
+          }
+        } catch (error) {
+          console.error(`❌ Error creating object ${index}:`, error);
+        }
+      });
+    };
+
+    // Object creation functions
+    const createDesk = (props) => {
+      const group = new THREE.Group();
+      const color = parseColor(props.color, 0x8B4513);
+      const material = new THREE.MeshLambertMaterial({ color });
+      
+      console.log(`🪑 Creating desk with color: ${color.toString(16)} (from ${props.color})`);
+      
+      // Desktop
+      const topGeometry = new THREE.BoxGeometry(props.width || 1.5, 0.05, props.depth || 0.8);
+      const desktop = new THREE.Mesh(topGeometry, material);
+      desktop.position.y = 0.75;
+      desktop.castShadow = true;
+      desktop.receiveShadow = true;
+      group.add(desktop);
+      
+      // Legs
+      const legGeometry = new THREE.BoxGeometry(0.05, 0.75, 0.05);
+      const positions = [
+        [-(props.width || 1.5)/2 + 0.1, 0.375, -(props.depth || 0.8)/2 + 0.1],
+        [(props.width || 1.5)/2 - 0.1, 0.375, -(props.depth || 0.8)/2 + 0.1],
+        [-(props.width || 1.5)/2 + 0.1, 0.375, (props.depth || 0.8)/2 - 0.1],
+        [(props.width || 1.5)/2 - 0.1, 0.375, (props.depth || 0.8)/2 - 0.1]
+      ];
+      
+      positions.forEach(pos => {
+        const leg = new THREE.Mesh(legGeometry, material);
+        leg.position.set(...pos);
+        leg.castShadow = true;
+        group.add(leg);
+      });
+      
+      return group;
+    };
+
+    const createChair = (props) => {
+      const group = new THREE.Group();
+      const color = parseColor(props.color, 0x444444);
+      const material = new THREE.MeshLambertMaterial({ color });
+      
+      console.log(`🪑 Creating chair with color: ${color.toString(16)} (from ${props.color})`);
+      
+      // Seat
+      const seatGeometry = new THREE.BoxGeometry(0.5, 0.05, 0.5);
+      const seat = new THREE.Mesh(seatGeometry, material);
+      seat.position.y = 0.45;
+      seat.castShadow = true;
+      group.add(seat);
+      
+      // Backrest
+      const backGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.05);
+      const back = new THREE.Mesh(backGeometry, material);
+      back.position.set(0, 0.7, -0.225);
+      back.castShadow = true;
+      group.add(back);
+      
+      // Legs
+      const legGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.45, 8);
+      const legPositions = [[-0.2, 0.225, -0.2], [0.2, 0.225, -0.2], [-0.2, 0.225, 0.2], [0.2, 0.225, 0.2]];
+      
+      legPositions.forEach(pos => {
+        const leg = new THREE.Mesh(legGeometry, material);
+        leg.position.set(...pos);
+        leg.castShadow = true;
+        group.add(leg);
+      });
+      
+      return group;
+    };
+
+    const createCabinet = (props) => {
+      const group = new THREE.Group();
+      const color = parseColor(props.color, 0x654321);
+      const material = new THREE.MeshLambertMaterial({ color });
+      
+      console.log(`🗄️ Creating cabinet with color: ${color.toString(16)} (from ${props.color})`);
+      
+      const width = props.width || 0.6;
+      const height = props.height || 1.2;
+      const depth = props.depth || 0.4;
+      
+      const cabinetGeometry = new THREE.BoxGeometry(width, height, depth);
+      const cabinet = new THREE.Mesh(cabinetGeometry, material);
+      cabinet.position.y = height / 2;
+      cabinet.castShadow = true;
+      cabinet.receiveShadow = true;
+      group.add(cabinet);
+      
+      return group;
+    };
+
+    const createLight = (props) => {
+      const color = parseColor(props.color, 0xffffff);
+      const intensity = props.intensity || 0.5;
+      const distance = props.distance || 50;
+      
+      console.log(`💡 Creating light with color: ${color.toString(16)} (from ${props.color})`);
+      
+      const light = new THREE.PointLight(color, intensity, distance);
+      light.castShadow = true;
+      
+      // Add visual indicator
+      const lightGeometry = new THREE.SphereGeometry(0.1, 8, 6);
+      const lightMaterial = new THREE.MeshBasicMaterial({ 
+        color: color, 
+        emissive: color,
+        emissiveIntensity: 0.5 
+      });
+      const lightMesh = new THREE.Mesh(lightGeometry, lightMaterial);
+      light.add(lightMesh);
+      
+      return light;
+    };
+
+    const createBox = (props) => {
+      const color = parseColor(props.color, 0x888888);
+      const width = props.width || 0.5;
+      const height = props.height || 0.5;
+      const depth = props.depth || 0.5;
+      
+      console.log(`📦 Creating box with color: ${color.toString(16)} (from ${props.color})`);
+      
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      const material = new THREE.MeshLambertMaterial({ color });
+      const box = new THREE.Mesh(geometry, material);
+      
+      box.castShadow = true;
+      box.receiveShadow = true;
+      
+      return box;
+    };
+
+    // Rename the old function to avoid conflicts
+    const createBasicRoom = (scene) => {
+      console.log('🏗️ Creating basic fallback room');
+      
+      const defaultConfig = {
+        room: {
+          width: 6,
+          height: 3,
+          depth: 6,
+          wallColor: 0xe0e0e0,
+          floorColor: 0xf5f5f5,
+          ceilingColor: 0xe0e0e0
+        },
+        objects: []
+      };
+      
+      createProceduralRoom(scene, defaultConfig);
     };
 
     // Add monitors/displays to the scene
@@ -276,8 +740,13 @@
     };
 
     // Create a single monitor object
-    const createMonitor = (config) => {
+    const createMonitor = (configOrProps) => {
       const monitorGroup = new THREE.Group();
+      
+      // Handle both old config format and new props format
+      const screenColor = parseColor(configOrProps.screenColor, 0x001133);
+      
+      console.log(`🖥️ Creating monitor with screen color: ${screenColor.toString(16)} (from ${configOrProps.screenColor})`);
       
       // Monitor base/stand
       const baseGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.05, 16);
@@ -307,8 +776,8 @@
       // Monitor screen (the main display)
       const screenGeometry = new THREE.PlaneGeometry(0.7, 0.4);
       const screenMaterial = new THREE.MeshLambertMaterial({ 
-        color: config.screenColor,
-        emissive: config.screenColor,
+        color: screenColor,
+        emissive: screenColor,
         emissiveIntensity: 0.3
       });
       const screen = new THREE.Mesh(screenGeometry, screenMaterial);

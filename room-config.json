@@ -1,0 +1,99 @@
+{
+  "room": {
+    "width": 10,
+    "height": 4,
+    "depth": 8,
+    "wallColor": "0xe8e8e8",
+    "floorColor": "0xf0f0f0", 
+    "ceilingColor": "0xffffff",
+    "hasDoor": true,
+    "doorWidth": 1.5,
+    "doorHeight": 2.5
+  },
+  "objects": [
+    {
+      "type": "desk",
+      "position": [-3, 0, -2],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "properties": {
+        "width": 2,
+        "depth": 1,
+        "color": "0x8B4513"
+      }
+    },
+    {
+      "type": "monitor",
+      "position": [-3, 1.3, -2.3],
+      "rotation": [0, 0, 0],
+      "scale": [0.8, 0.8, 0.8],
+      "properties": {
+        "screenColor": "0x001144"
+      }
+    },
+    {
+      "type": "chair",
+      "position": [-3, 0, -1.2],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "properties": {
+        "color": "0x333333"
+      }
+    },
+    {
+      "type": "desk",
+      "position": [3, 0, -2],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "properties": {
+        "width": 1.5,
+        "depth": 0.8,
+        "color": "0x654321"
+      }
+    },
+    {
+      "type": "monitor", 
+      "position": [3, 1.3, -2.3],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "properties": {
+        "screenColor": "0x004411"
+      }
+    },
+    {
+      "type": "cabinet",
+      "position": [0, 0, -3.8],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "properties": {
+        "width": 1.5,
+        "height": 2,
+        "depth": 0.5,
+        "color": "0x8B4513"
+      }
+    },
+    {
+      "type": "light",
+      "position": [0, 3.5, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1],
+      "properties": {
+        "color": "0xffffcc",
+        "intensity": 0.1,
+        "distance": 100
+      }
+    },
+    {
+      "type": "box",
+      "position": [2, 0.25, 2],
+      "rotation": [0, 0.5, 0],
+      "scale": [1, 1, 1],
+      "properties": {
+        "width": 0.5,
+        "height": 0.5,
+        "depth": 0.5,
+        "color": "0x4169E1"
+      }
+    }
+  ]
+}
