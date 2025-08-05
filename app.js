@@ -2,7 +2,7 @@
 // Nodes are equally spaced on a circle, fixed order, no randomization
 const baseNodes = [
   { label: "NETWORK", staticIcon: "img/cloud-network-whitebg.png", gifIcon: "img/cloud-network.gif" },
-  { label: "KEY", staticIcon: "img/encryption-whitebg.png", gifIcon: "img/encryption.gif" },
+  { label: "APPT", staticIcon: "img/appointment.png", gifIcon: "img/appointment.gif" },
   { label: "CHATBOT", staticIcon: "img/ai-assistant.png", gifIcon: "img/ai-assistant.gif" },
   { label: "HOME", staticIcon: "img/home-whitebg.png", gifIcon: "img/home.gif" },
   { label: "SYSTEM", staticIcon: "img/line-chart-whitebg.png", gifIcon: "img/line-chart.gif" },
@@ -36,7 +36,7 @@ function getResponsiveNodeSize(isHovered) {
   return isHovered ? base * 1.35 : base;
 }
 
-function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick }) {
+function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick, onApptClick }) {
   const cyRef = React.useRef(null);
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const [nodeScreenPositions, setNodeScreenPositions] = React.useState([]);
@@ -424,6 +424,10 @@ function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick }
                 if (node.label === 'HOME') {
                   onHomeClick();
                 }
+                // Handle APPT node click - toggle AppointmentDialog
+                if (node.label === 'APPT') {
+                  onApptClick();
+                }
               }}
               style={{
                 position: 'absolute',
@@ -436,7 +440,7 @@ function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick }
                 alignItems: 'center',
                 pointerEvents: 'auto', // Allow mouse events
                 zIndex: 3,
-                cursor: (node.label === 'SYSTEM' || node.label === 'CHATBOT' || node.label === 'HOME') ? 'pointer' : 'default',
+                cursor: (node.label === 'SYSTEM' || node.label === 'CHATBOT' || node.label === 'HOME' || node.label === 'APPT') ? 'pointer' : 'default',
               }}
             >
               {/* Animated border overlay */}
@@ -598,6 +602,9 @@ function App() {
   
   // Add LabviewDialog state
   const [isLabviewDialogOpen, setIsLabviewDialogOpen] = React.useState(false);
+  
+  // Add AppointmentDialog state
+  const [isAppointmentDialogOpen, setIsAppointmentDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     // Set body class for theme
@@ -628,6 +635,9 @@ function App() {
           } else if (isLabviewDialogOpen) {
             setIsLabviewDialogOpen(false);
             setTimeout(() => setIsInfoDialogOpen(!isInfoDialogOpen), 400);
+          } else if (isAppointmentDialogOpen) {
+            setIsAppointmentDialogOpen(false);
+            setTimeout(() => setIsInfoDialogOpen(!isInfoDialogOpen), 400);
           } else {
             setIsInfoDialogOpen(!isInfoDialogOpen);
           }
@@ -639,6 +649,9 @@ function App() {
             setTimeout(() => setIsChatbotDialogOpen(!isChatbotDialogOpen), 400);
           } else if (isLabviewDialogOpen) {
             setIsLabviewDialogOpen(false);
+            setTimeout(() => setIsChatbotDialogOpen(!isChatbotDialogOpen), 400);
+          } else if (isAppointmentDialogOpen) {
+            setIsAppointmentDialogOpen(false);
             setTimeout(() => setIsChatbotDialogOpen(!isChatbotDialogOpen), 400);
           } else {
             setIsChatbotDialogOpen(!isChatbotDialogOpen);
@@ -652,8 +665,37 @@ function App() {
           } else if (isChatbotDialogOpen) {
             setIsChatbotDialogOpen(false);
             setTimeout(() => setIsLabviewDialogOpen(!isLabviewDialogOpen), 400);
+          } else if (isAppointmentDialogOpen) {
+            setIsAppointmentDialogOpen(false);
+            setTimeout(() => setIsLabviewDialogOpen(!isLabviewDialogOpen), 400);
           } else {
             setIsLabviewDialogOpen(!isLabviewDialogOpen);
+          }
+        }}
+        onApptClick={() => {
+          console.log('[APPT] Button clicked, current state:', isAppointmentDialogOpen);
+          // Close other dialogs if open, then toggle appointment dialog
+          if (isInfoDialogOpen) {
+            setIsInfoDialogOpen(false);
+            setTimeout(() => {
+              console.log('[APPT] Opening after InfoDialog closed');
+              setIsAppointmentDialogOpen(!isAppointmentDialogOpen);
+            }, 400);
+          } else if (isChatbotDialogOpen) {
+            setIsChatbotDialogOpen(false);
+            setTimeout(() => {
+              console.log('[APPT] Opening after ChatbotDialog closed');
+              setIsAppointmentDialogOpen(!isAppointmentDialogOpen);
+            }, 400);
+          } else if (isLabviewDialogOpen) {
+            setIsLabviewDialogOpen(false);
+            setTimeout(() => {
+              console.log('[APPT] Opening after LabviewDialog closed');
+              setIsAppointmentDialogOpen(!isAppointmentDialogOpen);
+            }, 400);
+          } else {
+            console.log('[APPT] Opening directly');
+            setIsAppointmentDialogOpen(!isAppointmentDialogOpen);
           }
         }}
       />
@@ -677,6 +719,15 @@ function App() {
       {window.LabviewDialog && React.createElement(window.LabviewDialog, {
         isOpen: isLabviewDialogOpen,
         onClose: () => setIsLabviewDialogOpen(false),
+        theme: theme
+      })}
+      {console.log('[APPT] Rendering AppointmentDialog:', {
+        exists: !!window.AppointmentDialog,
+        isOpen: isAppointmentDialogOpen
+      })}
+      {window.AppointmentDialog && React.createElement(window.AppointmentDialog, {
+        isOpen: isAppointmentDialogOpen,
+        onClose: () => setIsAppointmentDialogOpen(false),
         theme: theme
       })}
     </div>
