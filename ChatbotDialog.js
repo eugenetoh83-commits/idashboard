@@ -18,6 +18,7 @@
     const idleTimeoutRef = React.useRef(null);
     const cycleIntervalRef = React.useRef(null);
     const debounceTimeoutRef = React.useRef(null);
+    const messagesContainerRef = React.useRef(null); // Add ref for messages container
     
     // Initialize voice gender from localStorage
     const [voiceGender, setVoiceGender] = React.useState(() => {
@@ -145,6 +146,13 @@
         };
       }
     }, []);
+
+    // Auto-scroll to bottom when new messages are added
+    React.useEffect(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }, [messages]); // Trigger whenever messages array changes
 
     // Speech Recognition (Voice-to-Text) functionality
     const [collectedTranscript, setCollectedTranscript] = React.useState('');
@@ -1407,6 +1415,7 @@
       // Messages Container
       React.createElement('div', {
         key: 'messages',
+        ref: messagesContainerRef,
         style: {
           flex: 1,
           padding: '20px',
