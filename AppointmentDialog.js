@@ -3,7 +3,7 @@ const AppointmentDialog = ({ isOpen, onClose, theme }) => {
   const calendarRef = React.useRef(null);
   const [isClosing, setIsClosing] = React.useState(false);
   const [appointments, setAppointments] = React.useState(() => {
-    const saved = localStorage.getItem('appointments');
+    const saved = localStorage.getItem('reservations');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -34,6 +34,13 @@ const AppointmentDialog = ({ isOpen, onClose, theme }) => {
         selectMirror: true,
         dayMaxEvents: true,
         themeSystem: theme === 'dark' ? 'dark' : 'standard',
+        // Enable touch support
+        longPressDelay: 500,
+        eventLongPressDelay: 500,
+        selectLongPressDelay: 500,
+        // Touch-friendly event handling
+        eventStartEditable: true,
+        eventDurationEditable: true,
         select: function(info) {
           const title = prompt('Enter appointment title:');
           if (title) {
@@ -46,7 +53,7 @@ const AppointmentDialog = ({ isOpen, onClose, theme }) => {
             };
             setAppointments(prev => {
               const updated = [...prev, newEvent];
-              localStorage.setItem('appointments', JSON.stringify(updated));
+              localStorage.setItem('reservations', JSON.stringify(updated));
               return updated;
             });
             calendar.addEvent(newEvent);
@@ -54,13 +61,36 @@ const AppointmentDialog = ({ isOpen, onClose, theme }) => {
           calendar.unselect();
         },
         eventClick: function(info) {
+          // Prevent default to ensure touch events work
+          info.jsEvent.preventDefault();
           if (confirm(`Delete appointment '${info.event.title}'?`)) {
             setAppointments(prev => {
               const updated = prev.filter(event => event.id !== parseInt(info.event.id));
-              localStorage.setItem('appointments', JSON.stringify(updated));
+              localStorage.setItem('reservations', JSON.stringify(updated));
               return updated;
             });
             info.event.remove();
+          }
+        },
+        // Add touch event support for date clicking
+        dateClick: function(info) {
+          // Handle single tap on dates for touch devices
+          if ('ontouchstart' in window) {
+            const title = prompt('Enter appointment title:');
+            if (title) {
+              const newEvent = {
+                id: Date.now(),
+                title: title,
+                start: info.dateStr,
+                allDay: true
+              };
+              setAppointments(prev => {
+                const updated = [...prev, newEvent];
+                localStorage.setItem('reservations', JSON.stringify(updated));
+                return updated;
+              });
+              calendar.addEvent(newEvent);
+            }
           }
         }
       });
@@ -70,6 +100,27 @@ const AppointmentDialog = ({ isOpen, onClose, theme }) => {
       return () => calendar.destroy();
     }
   }, [isOpen, theme, appointments]);
+
+  // Add effect to listen for localStorage changes and refresh appointments
+  React.useEffect(() => {
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem('reservations');
+      const newAppointments = saved ? JSON.parse(saved) : [];
+      setAppointments(newAppointments);
+    };
+
+    // Listen for storage events (when localStorage is changed by other tabs/components)
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also check for changes when the dialog opens
+    if (isOpen) {
+      handleStorageChange();
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [isOpen]);
 
   return (
     <div style={{
@@ -118,7 +169,16 @@ const AppointmentDialog = ({ isOpen, onClose, theme }) => {
           ×
         </button>
       </div>
-      <div ref={calendarRef} style={{ flex: 1 }}></div>
+      <div ref={calendarRef} style={{ 
+        flex: 1,
+        touchAction: 'manipulation', // Improves touch responsiveness
+        userSelect: 'none', // Prevents text selection on touch
+        WebkitTouchCallout: 'none', // Prevents callout on iOS
+        WebkitUserSelect: 'none',
+        KhtmlUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none'
+      }}></div>
     </div>
   );
 };
