@@ -158,6 +158,7 @@
     const [collectedTranscript, setCollectedTranscript] = React.useState('');
     const recognitionRef = React.useRef(null);
     const isRecognitionActiveRef = React.useRef(false);
+    const collectedTranscriptRef = React.useRef(''); // Add ref to track current transcript
     
     // Create a fresh recognition instance
     const createRecognitionInstance = React.useCallback(() => {
@@ -209,6 +210,7 @@
         if (finalTranscript) {
           setCollectedTranscript(prev => {
             const newTranscript = prev + finalTranscript + ' ';
+            collectedTranscriptRef.current = newTranscript; // Keep ref in sync
             console.log('🎤 Final transcript added:', finalTranscript);
             console.log('🎤 Total collected:', newTranscript);
             return newTranscript;
@@ -283,82 +285,92 @@
         
         // Automatically stop listening and process transcript after speech ends
         setTimeout(() => {
-          if (isListening && recognitionRef.current) {
-            console.log('🎤 Auto-stopping recognition after speech ended');
-            setIsListening(false);
-            
+          console.log('🎤 Auto-stopping recognition after speech ended');
+          console.log('🎤 Current transcript from ref:', collectedTranscriptRef.current);
+          
+          // Stop listening
+          setIsListening(false);
+          
+          if (recognitionRef.current) {
             try {
               recognitionRef.current.abort();
             } catch (error) {
               console.log('Error stopping recognition:', error);
             }
+          }
+          
+          // Check if we have transcript to submit
+          const currentTranscript = collectedTranscriptRef.current.trim();
+          if (currentTranscript) {
+            console.log('🎤 Auto-submitting collected transcript:', currentTranscript);
             
-            // Auto-submit the collected transcript if we have any
-            if (collectedTranscript.trim()) {
-              console.log('🎤 Auto-submitting collected transcript:', collectedTranscript.trim());
-              
-              const processingMessage = {
+            const processingMessage = {
+              id: Date.now() + Math.random(),
+              type: 'bot',
+              content: `🎤 Transcript ready: "${currentTranscript}" - Auto-submitting... 🚀`,
+              timestamp: new Date().toLocaleTimeString()
+            };
+            setMessages(prev => [...prev, processingMessage]);
+            
+            // Auto-send the message
+            setTimeout(async () => {
+              const userMessage = {
                 id: Date.now() + Math.random(),
-                type: 'bot',
-                content: `🎤 Transcript ready: "${collectedTranscript.trim()}" - Auto-submitting... 🚀`,
+                type: 'user',
+                content: currentTranscript,
                 timestamp: new Date().toLocaleTimeString()
               };
-              setMessages(prev => [...prev, processingMessage]);
               
-              // Auto-send the message
-              setTimeout(async () => {
-                const userMessage = {
+              setMessages(prev => [...prev, userMessage]);
+              
+              // Clear the transcript
+              setCollectedTranscript('');
+              collectedTranscriptRef.current = '';
+              
+              // Process the message and get bot response
+              setIsLoading(true);
+              try {
+                const botResponse = await processUserMessage(currentTranscript);
+                
+                const botMessage = {
                   id: Date.now() + Math.random(),
-                  type: 'user',
-                  content: collectedTranscript.trim(),
+                  type: 'bot',
+                  content: botResponse,
                   timestamp: new Date().toLocaleTimeString()
                 };
                 
-                setMessages(prev => [...prev, userMessage]);
-                setCollectedTranscript(''); // Clear the transcript
+                setMessages(prev => [...prev, botMessage]);
                 
-                // Process the message and get bot response
-                setIsLoading(true);
-                try {
-                  const botResponse = await processUserMessage(collectedTranscript.trim());
-                  
-                  const botMessage = {
-                    id: Date.now() + Math.random(),
-                    type: 'bot',
-                    content: botResponse,
-                    timestamp: new Date().toLocaleTimeString()
-                  };
-                  
-                  setMessages(prev => [...prev, botMessage]);
-                  
-                  // Auto-speak the response if not currently speaking
-                  if (!isSpeaking) {
+                // Auto-speak the response if not currently speaking
+                setIsSpeaking(currentIsSpeaking => {
+                  if (!currentIsSpeaking) {
                     speakText(botResponse);
                   }
-                  
-                  // Trigger animation reset
-                  resetToSmile();
-                } catch (error) {
-                  console.error('Error processing message:', error);
-                  const errorMessage = {
-                    id: Date.now() + Math.random(),
-                    type: 'bot',
-                    content: 'Sorry, I encountered an error processing your message. Please try again.',
-                    timestamp: new Date().toLocaleTimeString()
-                  };
-                  setMessages(prev => [...prev, errorMessage]);
-                }
-                setIsLoading(false);
-              }, 500); // Small delay for better UX
-            } else {
-              const noSpeechMessage = {
-                id: Date.now() + Math.random(),
-                type: 'bot',
-                content: '🎤 No speech was detected. Please try the microphone button again and speak clearly.',
-                timestamp: new Date().toLocaleTimeString()
-              };
-              setMessages(prev => [...prev, noSpeechMessage]);
-            }
+                  return currentIsSpeaking;
+                });
+                
+                // Trigger animation reset
+                resetToSmile();
+              } catch (error) {
+                console.error('Error processing message:', error);
+                const errorMessage = {
+                  id: Date.now() + Math.random(),
+                  type: 'bot',
+                  content: 'Sorry, I encountered an error processing your message. Please try again.',
+                  timestamp: new Date().toLocaleTimeString()
+                };
+                setMessages(prev => [...prev, errorMessage]);
+              }
+              setIsLoading(false);
+            }, 500); // Small delay for better UX
+          } else {
+            const noSpeechMessage = {
+              id: Date.now() + Math.random(),
+              type: 'bot',
+              content: '🎤 No speech was detected. Please try the microphone button again and speak clearly.',
+              timestamp: new Date().toLocaleTimeString()
+            };
+            setMessages(prev => [...prev, noSpeechMessage]);
           }
         }, 1000); // Wait 1 second after speech ends before auto-processing
       };
@@ -394,41 +406,49 @@
       };
       
       recognitionInstance.onend = () => {
-        console.log('🎤 Voice recognition ended, isListening:', isListening);
+        console.log('🎤 Voice recognition ended');
         isRecognitionActiveRef.current = false;
         
         // Clear any interim messages
         setMessages(prev => prev.filter(msg => !msg.id.toString().startsWith('interim-')));
         
-        // Only attempt restart if we're still supposed to be listening AND we haven't collected any transcript
-        // If we have transcript, the onspeechend handler will take care of auto-submission
-        if (isListening && !collectedTranscript.trim()) {
-          console.log('🎤 Attempting to restart recognition (no transcript collected yet)...');
-          setTimeout(() => {
-            if (isListening && recognitionRef.current && !collectedTranscript.trim()) {
-              try {
-                recognitionRef.current.start();
-                console.log('🎤 Recognition restarted successfully');
-              } catch (error) {
-                console.log('🎤 Recognition restart failed:', error.message);
-                if (error.name === 'InvalidStateError') {
-                  // Recognition is already running, ignore
-                  console.log('🎤 Recognition already running, continuing...');
-                } else {
-                  // Real error, stop listening
-                  setIsListening(false);
-                  const errorMessage = {
-                    id: Date.now() + Math.random(),
-                    type: 'bot',
-                    content: '🎤 Failed to continue listening. Please try again.',
-                    timestamp: new Date().toLocaleTimeString()
-                  };
-                  setMessages(prev => [...prev, errorMessage]);
+        // Use functional updates to check current state
+        setIsListening(currentIsListening => {
+          // Only attempt restart if we're still supposed to be listening AND we haven't collected any transcript
+          // If we have transcript, the onspeechend handler will take care of auto-submission
+          if (currentIsListening && !collectedTranscriptRef.current.trim()) {
+            console.log('🎤 Attempting to restart recognition (no transcript collected yet)...');
+            setTimeout(() => {
+              // Double-check the states again before restart
+              setIsListening(stillListening => {
+                if (stillListening && recognitionRef.current && !collectedTranscriptRef.current.trim()) {
+                  try {
+                    recognitionRef.current.start();
+                    console.log('🎤 Recognition restarted successfully');
+                  } catch (error) {
+                    console.log('🎤 Recognition restart failed:', error.message);
+                    if (error.name === 'InvalidStateError') {
+                      // Recognition is already running, ignore
+                      console.log('🎤 Recognition already running, continuing...');
+                    } else {
+                      // Real error, stop listening
+                      const errorMessage = {
+                        id: Date.now() + Math.random(),
+                        type: 'bot',
+                        content: '🎤 Failed to continue listening. Please try again.',
+                        timestamp: new Date().toLocaleTimeString()
+                      };
+                      setMessages(prev => [...prev, errorMessage]);
+                      return false; // Stop listening
+                    }
+                  }
                 }
-              }
-            }
-          }, 100); // Small delay before restart
-        }
+                return stillListening;
+              });
+            }, 100); // Small delay before restart
+          }
+          return currentIsListening;
+        });
       };
       
       recognitionInstance.onerror = (event) => {
@@ -492,7 +512,7 @@
       };
       
       return recognitionInstance;
-    }, [isListening]);
+    }, []); // Remove dependencies to prevent stale closures
 
     // Initialize recognition when component mounts
     React.useEffect(() => {
@@ -567,6 +587,7 @@
         setIsListening(true);
         setInputMessage(''); // Clear input field
         setCollectedTranscript(''); // Clear previous transcript
+        collectedTranscriptRef.current = ''; // Clear transcript ref
         
         // First, test microphone access
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
