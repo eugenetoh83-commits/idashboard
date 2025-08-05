@@ -1358,20 +1358,20 @@
              `💭 Share a quote - say "give me a quote" or just "quote"\n` +
              `🌤️ Get weather - say "weather" or "what's the weather"\n` +
              `🔊 Test speech - say "test speech" to check if audio is working\n` +
-             `📅 Schedule appointment - say "schedule meeting" or "book appointment"\n` +
-             `📋 View appointments - say "show my appointments" or "list appointments"\n` +
-             `❌ Cancel appointment - say "cancel appointment [title]"\n\n` +
+             `� Reserve lab - say "reserve lab" or "book lab"\n` +
+             `📋 View reservations - say "show my reservations" or "list reservations"\n` +
+             `❌ Cancel reservation - say "cancel reservation [name]"\n\n` +
              `Just type any of these requests and I'll help you out!`;
     };
 
-    // Calendar/Appointment functions
-    const getStoredAppointments = () => {
-      const saved = localStorage.getItem('appointments');
+    // Calendar/Lab Reservation functions
+    const getStoredReservations = () => {
+      const saved = localStorage.getItem('reservations');
       return saved ? JSON.parse(saved) : [];
     };
 
-    const saveAppointments = (appointments) => {
-      localStorage.setItem('appointments', JSON.stringify(appointments));
+    const saveReservations = (reservations) => {
+      localStorage.setItem('reservations', JSON.stringify(reservations));
     };
 
     const parseDateTime = (input) => {
@@ -1426,139 +1426,204 @@
       return date;
     };
 
-    const handleAppointmentRequest = (message) => {
+    const handleLabReservationRequest = (message) => {
       const lowerMessage = message.toLowerCase();
       
-      // Extract potential appointment details using simple patterns
-      const titleMatch = message.match(/(?:schedule|book|set up|create)(?:\s+(?:a|an))?\s+(?:appointment|meeting)?\s+(?:for|with|about)?\s*(.+?)(?:\s+(?:on|at|for|tomorrow|today|next week|\d))/i);
-      const timeMatch = message.match(/(?:at|on|for)\s+(.+)/i);
+      // Extract potential reservation details
+      const reservations = getStoredReservations();
       
-      // Basic appointment creation
-      const appointments = getStoredAppointments();
+      // Extract name using various patterns
+      let userName = '';
+      const namePatterns = [
+        /(?:my name is|i am|i'm|name:)\s+([a-zA-Z\s]+?)(?:\s+(?:and|employee|id|,|\.|on|at|for|tomorrow|today|next week|\d))/i,
+        /(?:reserve|book)\s+(?:lab|laboratory)\s+(?:for|under)\s+([a-zA-Z\s]+?)(?:\s+(?:employee|id|,|\.|on|at|for|tomorrow|today|next week|\d))/i,
+        /([a-zA-Z]+\s+[a-zA-Z]+)(?:\s+employee)/i // First Last employee
+      ];
       
-      // Extract title
-      let title = 'New Appointment';
-      if (titleMatch && titleMatch[1]) {
-        title = titleMatch[1].trim();
-      } else if (lowerMessage.includes('doctor')) {
-        title = 'Doctor Appointment';
-      } else if (lowerMessage.includes('dentist')) {
-        title = 'Dentist Appointment';
-      } else if (lowerMessage.includes('meeting')) {
-        title = 'Meeting';
-      } else if (lowerMessage.includes('call')) {
-        title = 'Phone Call';
+      for (const pattern of namePatterns) {
+        const match = message.match(pattern);
+        if (match && match[1]) {
+          userName = match[1].trim();
+          break;
+        }
+      }
+      
+      // Extract employee ID
+      let employeeId = '';
+      const idPatterns = [
+        /(?:employee\s+id|id|emp\s+id|employee\s+number|staff\s+id)[\s:]*([a-zA-Z0-9]+)/i,
+        /\b([a-zA-Z0-9]{3,10})\b.*(?:employee|id|emp)/i // ID followed by employee/id
+      ];
+      
+      for (const pattern of idPatterns) {
+        const match = message.match(pattern);
+        if (match && match[1]) {
+          employeeId = match[1].trim().toUpperCase();
+          break;
+        }
+      }
+      
+      // If missing information, prompt for it
+      if (!userName || !employeeId) {
+        let missingInfo = [];
+        if (!userName) missingInfo.push('👤 Your full name');
+        if (!employeeId) missingInfo.push('🆔 Your employee ID');
+        
+        return `🔬 To reserve the lab, I need the following information:\n\n` +
+               `${missingInfo.join('\n')}\n\n` +
+               `📝 Please provide in this format:\n` +
+               `"Reserve lab for [Your Name], employee ID [Your ID], on [date] at [time]"\n\n` +
+               `Example: "Reserve lab for John Smith, employee ID EMP123, tomorrow at 2 PM"`;
       }
       
       // Extract date/time
-      let appointmentDate = new Date();
+      const timeMatch = message.match(/(?:at|on|for)\s+(.+)/i);
+      let reservationDate = new Date();
+      
       if (timeMatch && timeMatch[1]) {
-        appointmentDate = parseDateTime(timeMatch[1]);
+        reservationDate = parseDateTime(timeMatch[1]);
       } else if (lowerMessage.includes('tomorrow')) {
-        appointmentDate = parseDateTime('tomorrow');
+        reservationDate = parseDateTime('tomorrow');
       } else if (lowerMessage.includes('next week')) {
-        appointmentDate = parseDateTime('next week');
+        reservationDate = parseDateTime('next week');
       } else {
         // Default to tomorrow at 10 AM
-        appointmentDate = parseDateTime('tomorrow');
-        appointmentDate.setHours(10, 0, 0, 0);
+        reservationDate = parseDateTime('tomorrow');
+        reservationDate.setHours(10, 0, 0, 0);
       }
       
-      // Create new appointment
-      const newAppointment = {
+      // Check for conflicts
+      const existingReservation = reservations.find(res => {
+        const existingStart = new Date(res.start);
+        const existingEnd = new Date(res.end);
+        const newStart = reservationDate;
+        const newEnd = new Date(reservationDate.getTime() + 2 * 60 * 60 * 1000); // 2 hours default
+        
+        return (newStart < existingEnd && newEnd > existingStart);
+      });
+      
+      if (existingReservation) {
+        const conflictDate = new Date(existingReservation.start);
+        return `❌ Lab reservation conflict!\n\n` +
+               `🔬 The lab is already reserved by ${existingReservation.userName} (${existingReservation.employeeId})\n` +
+               `📅 Time: ${conflictDate.toLocaleDateString()} at ${conflictDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\n` +
+               `Please choose a different time slot.`;
+      }
+      
+      // Create new reservation
+      const newReservation = {
         id: Date.now(),
-        title: title,
-        start: appointmentDate.toISOString(),
-        end: new Date(appointmentDate.getTime() + 60 * 60 * 1000).toISOString(), // 1 hour duration
+        title: `Lab Reserved - ${userName}`,
+        userName: userName,
+        employeeId: employeeId,
+        start: reservationDate.toISOString(),
+        end: new Date(reservationDate.getTime() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours duration
         allDay: false
       };
       
-      // Save to localStorage
-      const updatedAppointments = [...appointments, newAppointment];
-      saveAppointments(updatedAppointments);
+      // Save to localStorage (keeping appointments key for calendar compatibility)
+      const updatedReservations = [...reservations, newReservation];
+      saveReservations(updatedReservations);
+      // Also save to appointments for calendar display
+      localStorage.setItem('appointments', JSON.stringify(updatedReservations));
       
-      const formattedDate = appointmentDate.toLocaleDateString();
-      const formattedTime = appointmentDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const formattedDate = reservationDate.toLocaleDateString();
+      const formattedTime = reservationDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const endTime = new Date(reservationDate.getTime() + 2 * 60 * 60 * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       
-      return `📅 Appointment scheduled successfully!\n\n` +
-             `📋 Title: ${title}\n` +
+      return `� Lab reservation confirmed!\n\n` +
+             `👤 Name: ${userName}\n` +
+             `🆔 Employee ID: ${employeeId}\n` +
              `📅 Date: ${formattedDate}\n` +
-             `🕐 Time: ${formattedTime}\n\n` +
-             `Your appointment has been added to your calendar. You can view all appointments by saying "show my appointments".`;
+             `🕐 Time: ${formattedTime} - ${endTime}\n` +
+             `⏱️ Duration: 2 hours\n\n` +
+             `✅ Your lab reservation has been added to the calendar. You can view all reservations by saying "show my reservations".`;
     };
 
-    const handleViewAppointments = () => {
-      const appointments = getStoredAppointments();
+    const handleViewReservations = () => {
+      const reservations = getStoredReservations();
       
-      if (appointments.length === 0) {
-        return `📅 You have no scheduled appointments.\n\nTo schedule an appointment, say something like:\n• "Schedule a doctor appointment tomorrow at 2 PM"\n• "Book a meeting for next week"\n• "Set up a dentist appointment"`;
+      if (reservations.length === 0) {
+        return `� No lab reservations found.\n\nTo reserve the lab, say something like:\n• "Reserve lab for John Smith, employee ID EMP123, tomorrow at 2 PM"\n• "Book lab for Jane Doe, ID STAFF456, next week at 10 AM"\n• "Reserve laboratory for Bob Wilson, employee ID LAB789, today at 3 PM"`;
       }
       
-      // Sort appointments by date
-      const sortedAppointments = appointments.sort((a, b) => new Date(a.start) - new Date(b.start));
+      // Sort reservations by date
+      const sortedReservations = reservations.sort((a, b) => new Date(a.start) - new Date(b.start));
       
-      let response = `📅 Your scheduled appointments:\n\n`;
+      let response = `� Lab reservations:\n\n`;
       
-      sortedAppointments.forEach((appointment, index) => {
-        const startDate = new Date(appointment.start);
+      sortedReservations.forEach((reservation, index) => {
+        const startDate = new Date(reservation.start);
+        const endDate = new Date(reservation.end);
         const formattedDate = startDate.toLocaleDateString();
-        const formattedTime = startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const formattedStartTime = startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const formattedEndTime = endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
-        response += `${index + 1}. 📋 ${appointment.title}\n`;
-        response += `   📅 ${formattedDate} at ${formattedTime}\n\n`;
+        response += `${index + 1}. � ${reservation.userName}\n`;
+        response += `   🆔 Employee ID: ${reservation.employeeId}\n`;
+        response += `   📅 ${formattedDate}\n`;
+        response += `   🕐 ${formattedStartTime} - ${formattedEndTime}\n\n`;
       });
       
-      response += `To cancel an appointment, say "cancel appointment [title]" or click on it in the calendar.`;
+      response += `To cancel a reservation, say "cancel reservation [name]" or click on it in the calendar.`;
       
       return response;
     };
 
-    const handleCancelAppointment = (message) => {
-      const appointments = getStoredAppointments();
+    const handleCancelReservation = (message) => {
+      const reservations = getStoredReservations();
       
-      if (appointments.length === 0) {
-        return `📅 You have no appointments to cancel.`;
+      if (reservations.length === 0) {
+        return `� No lab reservations to cancel.`;
       }
       
-      // Try to extract appointment title from message
-      const cancelMatch = message.match(/cancel\s+appointment\s+(.+)/i);
+      // Try to extract name from message
+      const cancelMatch = message.match(/cancel\s+reservation\s+(.+)/i);
       
       if (!cancelMatch || !cancelMatch[1]) {
-        // Show list of appointments to cancel
-        let response = `📅 Which appointment would you like to cancel?\n\n`;
-        appointments.forEach((appointment, index) => {
-          const startDate = new Date(appointment.start);
+        // Show list of reservations to cancel
+        let response = `� Which lab reservation would you like to cancel?\n\n`;
+        reservations.forEach((reservation, index) => {
+          const startDate = new Date(reservation.start);
           const formattedDate = startDate.toLocaleDateString();
-          response += `${index + 1}. ${appointment.title} (${formattedDate})\n`;
+          const formattedTime = startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          response += `${index + 1}. ${reservation.userName} (${reservation.employeeId}) - ${formattedDate} at ${formattedTime}\n`;
         });
-        response += `\nSay "cancel appointment [title]" to cancel a specific appointment.`;
+        response += `\nSay "cancel reservation [name]" to cancel a specific reservation.`;
         return response;
       }
       
-      const titleToCancel = cancelMatch[1].trim().toLowerCase();
+      const nameToCancel = cancelMatch[1].trim().toLowerCase();
       
-      // Find matching appointment
-      const appointmentIndex = appointments.findIndex(apt => 
-        apt.title.toLowerCase().includes(titleToCancel)
+      // Find matching reservation by name or employee ID
+      const reservationIndex = reservations.findIndex(res => 
+        res.userName.toLowerCase().includes(nameToCancel) || 
+        res.employeeId.toLowerCase().includes(nameToCancel)
       );
       
-      if (appointmentIndex === -1) {
-        return `📅 Could not find an appointment matching "${cancelMatch[1]}". Please check the appointment title and try again.`;
+      if (reservationIndex === -1) {
+        return `� Could not find a lab reservation for "${cancelMatch[1]}". Please check the name or employee ID and try again.`;
       }
       
-      // Remove the appointment
-      const cancelledAppointment = appointments[appointmentIndex];
-      const updatedAppointments = appointments.filter((_, index) => index !== appointmentIndex);
-      saveAppointments(updatedAppointments);
+      // Remove the reservation
+      const cancelledReservation = reservations[reservationIndex];
+      const updatedReservations = reservations.filter((_, index) => index !== reservationIndex);
+      saveReservations(updatedReservations);
+      // Also update appointments for calendar compatibility
+      localStorage.setItem('appointments', JSON.stringify(updatedReservations));
       
-      const startDate = new Date(cancelledAppointment.start);
+      const startDate = new Date(cancelledReservation.start);
+      const endDate = new Date(cancelledReservation.end);
       const formattedDate = startDate.toLocaleDateString();
-      const formattedTime = startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const formattedStartTime = startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const formattedEndTime = endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       
-      return `❌ Appointment cancelled successfully!\n\n` +
-             `📋 Cancelled: ${cancelledAppointment.title}\n` +
-             `📅 Was scheduled for: ${formattedDate} at ${formattedTime}\n\n` +
-             `The appointment has been removed from your calendar.`;
+      return `❌ Lab reservation cancelled successfully!\n\n` +
+             `� Cancelled: ${cancelledReservation.userName}\n` +
+             `🆔 Employee ID: ${cancelledReservation.employeeId}\n` +
+             `📅 Was scheduled for: ${formattedDate}\n` +
+             `🕐 Time: ${formattedStartTime} - ${formattedEndTime}\n\n` +
+             `The reservation has been removed from the calendar.`;
     };
 
     const processUserMessage = async (message) => {
@@ -1571,19 +1636,19 @@
         return `🔊 Speech test initiated. You should hear: "${testMessage}"`;
       }
       
-      // Appointment scheduling requests
-      if (lowerMessage.includes('schedule') || lowerMessage.includes('appointment') || lowerMessage.includes('meeting') || lowerMessage.includes('book') || lowerMessage.includes('calendar')) {
-        return handleAppointmentRequest(message);
+      // Lab reservation requests
+      if (lowerMessage.includes('reserve') || lowerMessage.includes('reservation') || lowerMessage.includes('lab') || lowerMessage.includes('laboratory') || lowerMessage.includes('book lab')) {
+        return handleLabReservationRequest(message);
       }
       
-      // View calendar/appointments
-      if (lowerMessage.includes('show appointments') || lowerMessage.includes('list appointments') || lowerMessage.includes('my appointments') || lowerMessage.includes('view calendar')) {
-        return handleViewAppointments();
+      // View lab reservations
+      if (lowerMessage.includes('show reservations') || lowerMessage.includes('list reservations') || lowerMessage.includes('my reservations') || lowerMessage.includes('view reservations')) {
+        return handleViewReservations();
       }
       
-      // Cancel/delete appointments
-      if (lowerMessage.includes('cancel appointment') || lowerMessage.includes('delete appointment') || lowerMessage.includes('remove appointment')) {
-        return handleCancelAppointment(message);
+      // Cancel/delete reservations
+      if (lowerMessage.includes('cancel reservation') || lowerMessage.includes('delete reservation') || lowerMessage.includes('remove reservation')) {
+        return handleCancelReservation(message);
       }
       
       // Quote requests
