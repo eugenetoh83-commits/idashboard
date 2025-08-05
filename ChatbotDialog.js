@@ -280,6 +280,87 @@
           timestamp: new Date().toLocaleTimeString()
         };
         setMessages(prev => [...prev, speechEndedMessage]);
+        
+        // Automatically stop listening and process transcript after speech ends
+        setTimeout(() => {
+          if (isListening && recognitionRef.current) {
+            console.log('🎤 Auto-stopping recognition after speech ended');
+            setIsListening(false);
+            
+            try {
+              recognitionRef.current.abort();
+            } catch (error) {
+              console.log('Error stopping recognition:', error);
+            }
+            
+            // Auto-submit the collected transcript if we have any
+            if (collectedTranscript.trim()) {
+              console.log('🎤 Auto-submitting collected transcript:', collectedTranscript.trim());
+              
+              const processingMessage = {
+                id: Date.now() + Math.random(),
+                type: 'bot',
+                content: `🎤 Transcript ready: "${collectedTranscript.trim()}" - Auto-submitting... 🚀`,
+                timestamp: new Date().toLocaleTimeString()
+              };
+              setMessages(prev => [...prev, processingMessage]);
+              
+              // Auto-send the message
+              setTimeout(async () => {
+                const userMessage = {
+                  id: Date.now() + Math.random(),
+                  type: 'user',
+                  content: collectedTranscript.trim(),
+                  timestamp: new Date().toLocaleTimeString()
+                };
+                
+                setMessages(prev => [...prev, userMessage]);
+                setCollectedTranscript(''); // Clear the transcript
+                
+                // Process the message and get bot response
+                setIsLoading(true);
+                try {
+                  const botResponse = await processUserMessage(collectedTranscript.trim());
+                  
+                  const botMessage = {
+                    id: Date.now() + Math.random(),
+                    type: 'bot',
+                    content: botResponse,
+                    timestamp: new Date().toLocaleTimeString()
+                  };
+                  
+                  setMessages(prev => [...prev, botMessage]);
+                  
+                  // Auto-speak the response if not currently speaking
+                  if (!isSpeaking) {
+                    speakText(botResponse);
+                  }
+                  
+                  // Trigger animation reset
+                  resetToSmile();
+                } catch (error) {
+                  console.error('Error processing message:', error);
+                  const errorMessage = {
+                    id: Date.now() + Math.random(),
+                    type: 'bot',
+                    content: 'Sorry, I encountered an error processing your message. Please try again.',
+                    timestamp: new Date().toLocaleTimeString()
+                  };
+                  setMessages(prev => [...prev, errorMessage]);
+                }
+                setIsLoading(false);
+              }, 500); // Small delay for better UX
+            } else {
+              const noSpeechMessage = {
+                id: Date.now() + Math.random(),
+                type: 'bot',
+                content: '🎤 No speech was detected. Please try the microphone button again and speak clearly.',
+                timestamp: new Date().toLocaleTimeString()
+              };
+              setMessages(prev => [...prev, noSpeechMessage]);
+            }
+          }
+        }, 1000); // Wait 1 second after speech ends before auto-processing
       };
       
       recognitionInstance.onaudiostart = () => {
@@ -319,11 +400,12 @@
         // Clear any interim messages
         setMessages(prev => prev.filter(msg => !msg.id.toString().startsWith('interim-')));
         
-        // For mobile, we manually restart if still supposed to be listening
-        if (isListening) {
-          console.log('🎤 Attempting to restart recognition...');
+        // Only attempt restart if we're still supposed to be listening AND we haven't collected any transcript
+        // If we have transcript, the onspeechend handler will take care of auto-submission
+        if (isListening && !collectedTranscript.trim()) {
+          console.log('🎤 Attempting to restart recognition (no transcript collected yet)...');
           setTimeout(() => {
-            if (isListening && recognitionRef.current) {
+            if (isListening && recognitionRef.current && !collectedTranscript.trim()) {
               try {
                 recognitionRef.current.start();
                 console.log('🎤 Recognition restarted successfully');
@@ -456,7 +538,7 @@
       }
 
       if (isListening) {
-        // Stop listening and use collected transcript
+        // Stop listening - transcript will be auto-processed if available
         setIsListening(false);
         
         // Stop current recognition
@@ -468,30 +550,18 @@
           }
         }
         
-        console.log('🎤 Stopped listening, collected transcript:', collectedTranscript);
+        console.log('🎤 Manually stopped listening');
         
         // Clear any interim messages
         setMessages(prev => prev.filter(msg => !msg.id.toString().startsWith('interim-')));
         
-        if (collectedTranscript.trim()) {
-          setInputMessage(collectedTranscript.trim());
-          
-          const stopMessage = {
-            id: Date.now() + Math.random(),
-            type: 'bot',
-            content: `🎤 Stopped listening. Transcript ready: "${collectedTranscript.trim()}"`,
-            timestamp: new Date().toLocaleTimeString()
-          };
-          setMessages(prev => [...prev, stopMessage]);
-        } else {
-          const noSpeechMessage = {
-            id: Date.now() + Math.random(),
-            type: 'bot',
-            content: '🎤 No speech was detected. Try these troubleshooting steps:\n\n1. Check microphone permissions in browser settings\n2. Speak louder and closer to the microphone\n3. Try saying "Hello" clearly\n4. Check if other apps can use your microphone\n5. Ensure stable internet connection',
-            timestamp: new Date().toLocaleTimeString()
-          };
-          setMessages(prev => [...prev, noSpeechMessage]);
-        }
+        const stopMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🎤 Stopped listening manually.',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, stopMessage]);
       } else {
         // Start listening with fresh recognition instance
         setIsListening(true);
@@ -511,7 +581,7 @@
               const diagnosticMessage = {
                 id: Date.now() + Math.random(),
                 type: 'bot',
-                content: '✅ Microphone access OK. Starting speech recognition...\n\n📱 Android Tips:\n• Speak clearly and loudly\n• Hold phone 6-12 inches from mouth\n• Avoid background noise\n• Ensure stable WiFi/data connection',
+                content: '✅ Microphone access OK. Starting speech recognition...\n\n📱 Android Tips:\n• Speak clearly and loudly\n• Hold phone 6-12 inches from mouth\n• Avoid background noise\n• Ensure stable WiFi/data connection\n• Speech will auto-submit when you finish talking!',
                 timestamp: new Date().toLocaleTimeString()
               };
               setMessages(prev => [...prev, diagnosticMessage]);
@@ -528,7 +598,7 @@
                 const startMessage = {
                   id: Date.now() + Math.random(),
                   type: 'bot',
-                  content: '🎤 Microphone is ACTIVE! Say something now... (Try saying "Hello test" clearly)',
+                  content: '🎤 Microphone is ACTIVE! Say something now... (Will auto-submit when you finish speaking)',
                   timestamp: new Date().toLocaleTimeString()
                 };
                 setMessages(prev => [...prev, startMessage]);
@@ -587,7 +657,7 @@
             const startMessage = {
               id: Date.now() + Math.random(),
               type: 'bot',
-              content: '🎤 Starting microphone (compatibility mode)... Speak now! (Click mic again to stop)',
+              content: '🎤 Starting microphone (compatibility mode)... Speak now! (Will auto-submit when finished)',
               timestamp: new Date().toLocaleTimeString()
             };
             setMessages(prev => [...prev, startMessage]);
