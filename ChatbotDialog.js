@@ -160,24 +160,36 @@
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognitionInstance = new SpeechRecognition();
       
-      // Mobile-optimized settings
-      recognitionInstance.continuous = false; // Changed back to false for mobile compatibility
+      // Mobile-optimized settings for better speech detection
+      recognitionInstance.continuous = false; // Better for mobile
       recognitionInstance.interimResults = true;
       recognitionInstance.lang = 'en-US';
       recognitionInstance.maxAlternatives = 1;
       
-      // Add mobile-specific settings
+      // Android-specific optimizations
       if (navigator.userAgent.includes('Android')) {
         recognitionInstance.continuous = false; // Ensure false on Android
+        // Try to set service type for better recognition (Chrome Android specific)
+        try {
+          recognitionInstance.serviceURI = 'ws://localhost/recognition'; // This might help with local processing
+        } catch (e) {
+          // Ignore if not supported
+        }
       }
       
       recognitionInstance.onresult = (event) => {
         let finalTranscript = '';
         let interimTranscript = '';
         
+        console.log('🎤 onresult triggered, results length:', event.results.length);
+        
         // Collect all results
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
+          const confidence = event.results[i][0].confidence;
+          
+          console.log(`🎤 Result ${i}: "${transcript}" (confidence: ${confidence}, final: ${event.results[i].isFinal})`);
+          
           if (event.results[i].isFinal) {
             finalTranscript += transcript;
           } else {
@@ -194,24 +206,25 @@
             return newTranscript;
           });
           
-          // Show what was heard
+          // Show what was heard with confidence info
           const transcriptMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: `🎤 Heard: "${finalTranscript}"`,
+            content: `🎤 Heard: "${finalTranscript}" ✅`,
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, transcriptMessage]);
         }
         
-        // Show interim results in real-time
+        // Show interim results in real-time for immediate feedback
         if (interimTranscript) {
           console.log('🎤 Interim:', interimTranscript);
+          
           // Show interim feedback for mobile users
           const interimMessage = {
             id: 'interim-' + Date.now(),
             type: 'bot',
-            content: `🎤 Hearing: "${interimTranscript}..."`,
+            content: `🎤 Hearing: "${interimTranscript}..." 👂`,
             timestamp: new Date().toLocaleTimeString()
           };
           // Replace any existing interim message
@@ -232,11 +245,63 @@
           const startMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 Microphone active! Speak clearly and loudly.',
+            content: '🎤 Microphone is LISTENING! Speak clearly now... 🔊',
             timestamp: new Date().toLocaleTimeString()
           };
           return [...filtered, startMessage];
         });
+      };
+      
+      recognitionInstance.onspeechstart = () => {
+        console.log('🎤 Speech detected!');
+        const speechDetectedMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🎤 Speech detected! Keep talking... 🗣️',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, speechDetectedMessage]);
+      };
+      
+      recognitionInstance.onspeechend = () => {
+        console.log('🎤 Speech ended');
+        const speechEndedMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🎤 Speech ended. Processing... ⏳',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, speechEndedMessage]);
+      };
+      
+      recognitionInstance.onaudiostart = () => {
+        console.log('🎤 Audio input started');
+        const audioStartMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🎤 Audio input detected! Microphone is working 📡',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, audioStartMessage]);
+      };
+      
+      recognitionInstance.onaudioend = () => {
+        console.log('🎤 Audio input ended');
+      };
+      
+      recognitionInstance.onsoundstart = () => {
+        console.log('🎤 Sound detected');
+        const soundDetectedMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🎤 Sound detected! 🔉',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, soundDetectedMessage]);
+      };
+      
+      recognitionInstance.onsoundend = () => {
+        console.log('🎤 Sound ended');
       };
       
       recognitionInstance.onend = () => {
@@ -283,12 +348,12 @@
         // Clear any interim messages
         setMessages(prev => prev.filter(msg => !msg.id.toString().startsWith('interim-')));
         
-        // Handle different types of errors
+        // Handle different types of errors with detailed explanations
         if (event.error === 'not-allowed') {
           const errorMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 Microphone access denied. Please allow microphone permission in your browser settings and try again.',
+            content: '🎤 Microphone access DENIED!\n\n🔧 Fix steps:\n1. Look for 🎤 or 🔒 icon in address bar\n2. Click it and allow microphone\n3. Refresh page and try again\n\nOn Chrome Android: Settings > Site Settings > Microphone',
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, errorMessage]);
@@ -298,7 +363,7 @@
           const noSpeechMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 No speech detected. Speak louder or closer to the microphone.',
+            content: '🎤 No speech detected!\n\n💡 Try:\n• Speaking LOUDER\n• Getting closer to microphone\n• Saying "Hello test" clearly\n• Checking if microphone works in other apps',
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, noSpeechMessage]);
@@ -310,16 +375,25 @@
           const networkMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 Network error. Check your internet connection and try again.',
+            content: '🎤 Network error!\n\n📡 Check:\n• WiFi/Mobile data connection\n• Try switching between WiFi and mobile data\n• Restart browser if problem persists',
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, networkMessage]);
+          setIsListening(false);
+        } else if (event.error === 'audio-capture') {
+          const captureMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: '🎤 Microphone capture failed!\n\n🔧 Possible fixes:\n• Close other apps using microphone\n• Restart browser\n• Check phone microphone hardware\n• Try headphone microphone',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, captureMessage]);
           setIsListening(false);
         } else {
           const errorMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: `🎤 Error: ${event.error}. Try speaking more clearly or restart the microphone.`,
+            content: `🎤 Error: ${event.error}\n\n🔄 Try:\n• Refresh page\n• Use Chrome browser\n• Check device microphone\n• Try in incognito mode`,
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, errorMessage]);
@@ -405,7 +479,7 @@
           const noSpeechMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 No speech was detected. Make sure you speak clearly and your microphone is working.',
+            content: '🎤 No speech was detected. Try these troubleshooting steps:\n\n1. Check microphone permissions in browser settings\n2. Speak louder and closer to the microphone\n3. Try saying "Hello" clearly\n4. Check if other apps can use your microphone\n5. Ensure stable internet connection',
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, noSpeechMessage]);
@@ -416,33 +490,111 @@
         setInputMessage(''); // Clear input field
         setCollectedTranscript(''); // Clear previous transcript
         
-        // Update the recognition reference
-        recognitionRef.current = currentRecognition;
-        setRecognition(currentRecognition);
-        
-        try {
-          currentRecognition.start();
-          console.log('🎤 Started listening with fresh recognition instance');
+        // First, test microphone access
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+              console.log('🎤 Microphone access granted');
+              
+              // Stop the test stream
+              stream.getTracks().forEach(track => track.stop());
+              
+              // Show diagnostic info
+              const diagnosticMessage = {
+                id: Date.now() + Math.random(),
+                type: 'bot',
+                content: '✅ Microphone access OK. Starting speech recognition...\n\n📱 Android Tips:\n• Speak clearly and loudly\n• Hold phone 6-12 inches from mouth\n• Avoid background noise\n• Ensure stable WiFi/data connection',
+                timestamp: new Date().toLocaleTimeString()
+              };
+              setMessages(prev => [...prev, diagnosticMessage]);
+              
+              // Update the recognition reference
+              recognitionRef.current = currentRecognition;
+              setRecognition(currentRecognition);
+              
+              try {
+                currentRecognition.start();
+                console.log('🎤 Started listening with fresh recognition instance');
+                
+                // Add immediate feedback message
+                const startMessage = {
+                  id: Date.now() + Math.random(),
+                  type: 'bot',
+                  content: '🎤 Microphone is ACTIVE! Say something now... (Try saying "Hello test" clearly)',
+                  timestamp: new Date().toLocaleTimeString()
+                };
+                setMessages(prev => [...prev, startMessage]);
+                
+                // Add a timeout to provide feedback if no speech is detected after 10 seconds
+                setTimeout(() => {
+                  if (isListening && collectedTranscript.trim() === '') {
+                    const timeoutMessage = {
+                      id: Date.now() + Math.random(),
+                      type: 'bot',
+                      content: '🎤 Still listening... If you\'re speaking but no text appears, try:\n• Speaking louder\n• Moving closer to microphone\n• Checking browser microphone permissions',
+                      timestamp: new Date().toLocaleTimeString()
+                    };
+                    setMessages(prev => [...prev, timeoutMessage]);
+                  }
+                }, 10000); // 10 second timeout
+                
+              } catch (error) {
+                console.error('🎤 Failed to start recognition:', error);
+                setIsListening(false);
+                
+                const errorMessage = {
+                  id: Date.now() + Math.random(),
+                  type: 'bot',
+                  content: `🎤 Failed to start microphone: ${error.message}.\n\nPossible solutions:\n• Refresh the page and try again\n• Check browser permissions\n• Try in Chrome Incognito mode`,
+                  timestamp: new Date().toLocaleTimeString()
+                };
+                setMessages(prev => [...prev, errorMessage]);
+              }
+            })
+            .catch(error => {
+              console.error('🎤 Microphone access denied:', error);
+              setIsListening(false);
+              
+              const permissionMessage = {
+                id: Date.now() + Math.random(),
+                type: 'bot',
+                content: `🎤 Microphone access denied!\n\n🔧 To fix this:\n1. Tap the 🔒 or 🎤 icon in your browser address bar\n2. Allow microphone access\n3. Refresh the page\n4. Try the microphone button again\n\nError: ${error.message}`,
+                timestamp: new Date().toLocaleTimeString()
+              };
+              setMessages(prev => [...prev, permissionMessage]);
+            });
+        } else {
+          // Fallback for older browsers
+          console.warn('🎤 getUserMedia not supported, trying direct recognition start');
           
-          // Add immediate feedback message
-          const startMessage = {
-            id: Date.now() + Math.random(),
-            type: 'bot',
-            content: '🎤 Starting microphone... Speak now! (Click mic again to stop)',
-            timestamp: new Date().toLocaleTimeString()
-          };
-          setMessages(prev => [...prev, startMessage]);
-        } catch (error) {
-          console.error('🎤 Failed to start recognition:', error);
-          setIsListening(false);
+          // Update the recognition reference
+          recognitionRef.current = currentRecognition;
+          setRecognition(currentRecognition);
           
-          const errorMessage = {
-            id: Date.now() + Math.random(),
-            type: 'bot',
-            content: `🎤 Failed to start microphone: ${error.message}. Please try again.`,
-            timestamp: new Date().toLocaleTimeString()
-          };
-          setMessages(prev => [...prev, errorMessage]);
+          try {
+            currentRecognition.start();
+            console.log('🎤 Started listening with fresh recognition instance (fallback)');
+            
+            // Add immediate feedback message
+            const startMessage = {
+              id: Date.now() + Math.random(),
+              type: 'bot',
+              content: '🎤 Starting microphone (compatibility mode)... Speak now! (Click mic again to stop)',
+              timestamp: new Date().toLocaleTimeString()
+            };
+            setMessages(prev => [...prev, startMessage]);
+          } catch (error) {
+            console.error('🎤 Failed to start recognition:', error);
+            setIsListening(false);
+            
+            const errorMessage = {
+              id: Date.now() + Math.random(),
+              type: 'bot',
+              content: `🎤 Failed to start microphone: ${error.message}. Please try again.`,
+              timestamp: new Date().toLocaleTimeString()
+            };
+            setMessages(prev => [...prev, errorMessage]);
+          }
         }
       }
     };
