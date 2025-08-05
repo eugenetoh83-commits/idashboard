@@ -31,6 +31,8 @@
     };
 
     const setupMouseControls = (canvas) => {
+      let touchStartDistance = 0;
+
       const handleMouseDown = (event) => {
         mouseRef.current.isDown = true;
         mouseRef.current.button = event.button;
@@ -83,10 +85,100 @@
         event.preventDefault();
       };
 
+      // Touch event handlers
+      const handleTouchStart = (event) => {
+        event.preventDefault();
+        mouseRef.current.isDown = true;
+        
+        if (event.touches.length === 2) {
+          // Calculate initial distance between two fingers for pinch zoom
+          const touch1 = event.touches[0];
+          const touch2 = event.touches[1];
+          touchStartDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+          );
+        } else if (event.touches.length === 1) {
+          mouseRef.current.x = event.touches[0].clientX;
+          mouseRef.current.y = event.touches[0].clientY;
+        }
+      };
+
+      const handleTouchMove = (event) => {
+        event.preventDefault();
+        if (!mouseRef.current.isDown) return;
+
+        const state = cameraStateRef.current;
+
+        if (event.touches.length === 2) {
+          // Two-finger gesture - handle rotation/tilt
+          const touch1 = event.touches[0];
+          const touch2 = event.touches[1];
+          
+          // Calculate center point between fingers
+          const centerX = (touch1.clientX + touch2.clientX) / 2;
+          const centerY = (touch1.clientY + touch2.clientY) / 2;
+          
+          const deltaX = centerX - mouseRef.current.x;
+          const deltaY = centerY - mouseRef.current.y;
+
+          state.theta += deltaX * 0.01;
+          state.phi = Math.max(0.1, Math.min(Math.PI - 0.1, state.phi + deltaY * 0.01));
+
+          mouseRef.current.x = centerX;
+          mouseRef.current.y = centerY;
+
+          // Handle pinch zoom
+          const currentDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+          );
+          
+          const pinchDelta = currentDistance - touchStartDistance;
+          state.radius -= pinchDelta * 0.01;
+          state.radius = Math.max(2, Math.min(20, state.radius));
+          touchStartDistance = currentDistance;
+          
+        } else if (event.touches.length === 1) {
+          // One-finger gesture - handle panning
+          const touch = event.touches[0];
+          const deltaX = touch.clientX - mouseRef.current.x;
+          const deltaY = touch.clientY - mouseRef.current.y;
+
+          const camera = cameraRef.current;
+          const right = new THREE.Vector3();
+          const up = new THREE.Vector3();
+          
+          camera.getWorldDirection(new THREE.Vector3());
+          right.setFromMatrixColumn(camera.matrix, 0);
+          up.setFromMatrixColumn(camera.matrix, 1);
+          
+          right.multiplyScalar(-deltaX * 0.01);
+          up.multiplyScalar(deltaY * 0.01);
+          
+          state.target.x += right.x + up.x;
+          state.target.y += right.y + up.y;
+          state.target.z += right.z + up.z;
+
+          mouseRef.current.x = touch.clientX;
+          mouseRef.current.y = touch.clientY;
+        }
+
+        updateCameraPosition();
+      };
+
+      const handleTouchEnd = () => {
+        mouseRef.current.isDown = false;
+        touchStartDistance = 0;
+      };
+
       canvas.addEventListener('mousedown', handleMouseDown);
       canvas.addEventListener('mousemove', handleMouseMove);
       canvas.addEventListener('mouseup', handleMouseUp);
       canvas.addEventListener('wheel', handleWheel);
+      canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+      canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+      canvas.addEventListener('touchend', handleTouchEnd);
       canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
       return () => {
@@ -94,6 +186,9 @@
         canvas.removeEventListener('mousemove', handleMouseMove);
         canvas.removeEventListener('mouseup', handleMouseUp);
         canvas.removeEventListener('wheel', handleWheel);
+        canvas.removeEventListener('touchstart', handleTouchStart);
+        canvas.removeEventListener('touchmove', handleTouchMove);
+        canvas.removeEventListener('touchend', handleTouchEnd);
         canvas.removeEventListener('contextmenu', (e) => e.preventDefault());
       };
     };
