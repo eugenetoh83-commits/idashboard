@@ -159,6 +159,16 @@
         recognitionInstance.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           console.log('🎤 Voice input received:', transcript);
+          
+          // Add transcript as a system message to show what was recognized
+          const transcriptMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: `🎤 Heard: "${transcript}"`,
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, transcriptMessage]);
+          
           setInputMessage(transcript);
           setIsListening(false);
           
@@ -170,19 +180,55 @@
           }, 500);
         };
         
+        recognitionInstance.onstart = () => {
+          console.log('🎤 Voice recognition started');
+          // Add a message to show recognition has started
+          const startMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: '🎤 Listening... speak now!',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, startMessage]);
+        };
+        
         recognitionInstance.onend = () => {
           setIsListening(false);
           console.log('🎤 Voice recognition ended');
+          // Add a message to show recognition has ended
+          const endMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: '🎤 Stopped listening',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, endMessage]);
         };
         
         recognitionInstance.onerror = (event) => {
           setIsListening(false);
           console.error('🎤 Voice recognition error:', event.error);
+          // Add error message to chat
+          const errorMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: `🎤 Error: ${event.error}. Speech recognition may not be supported on this device/browser.`,
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, errorMessage]);
         };
         
         setRecognition(recognitionInstance);
       } else {
         console.warn('Speech recognition not supported in this browser');
+        // Add a message to inform user that speech recognition is not supported
+        const unsupportedMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🎤 Speech recognition is not supported on this device/browser. Please type your message instead.',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, unsupportedMessage]);
       }
     }, []);
 
@@ -192,6 +238,23 @@
         setInputMessage(''); // Clear input field
         recognition.start();
         console.log('🎤 Started listening...');
+        // Add immediate feedback message
+        const startMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🎤 Starting microphone...',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, startMessage]);
+      } else if (!recognition) {
+        // If recognition is not available, show error
+        const errorMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🎤 Speech recognition not available on this device.',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
       }
     };
 
