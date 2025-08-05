@@ -148,110 +148,196 @@
 
     // Speech Recognition (Voice-to-Text) functionality
     const [collectedTranscript, setCollectedTranscript] = React.useState('');
+    const recognitionRef = React.useRef(null);
+    const isRecognitionActiveRef = React.useRef(false);
     
-    React.useEffect(() => {
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognitionInstance = new SpeechRecognition();
+    // Create a fresh recognition instance
+    const createRecognitionInstance = React.useCallback(() => {
+      if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+        return null;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+      
+      // Mobile-optimized settings
+      recognitionInstance.continuous = false; // Changed back to false for mobile compatibility
+      recognitionInstance.interimResults = true;
+      recognitionInstance.lang = 'en-US';
+      recognitionInstance.maxAlternatives = 1;
+      
+      // Add mobile-specific settings
+      if (navigator.userAgent.includes('Android')) {
+        recognitionInstance.continuous = false; // Ensure false on Android
+      }
+      
+      recognitionInstance.onresult = (event) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
         
-        recognitionInstance.continuous = true; // Enable continuous listening
-        recognitionInstance.interimResults = true; // Show interim results
-        recognitionInstance.lang = 'en-US';
+        // Collect all results
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
         
-        recognitionInstance.onresult = (event) => {
-          let finalTranscript = '';
-          let interimTranscript = '';
+        // Update collected transcript with final results
+        if (finalTranscript) {
+          setCollectedTranscript(prev => {
+            const newTranscript = prev + finalTranscript + ' ';
+            console.log('🎤 Final transcript added:', finalTranscript);
+            console.log('🎤 Total collected:', newTranscript);
+            return newTranscript;
+          });
           
-          // Collect all results
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript;
-            } else {
-              interimTranscript += transcript;
-            }
-          }
-          
-          // Update collected transcript with final results
-          if (finalTranscript) {
-            setCollectedTranscript(prev => prev + finalTranscript + ' ');
-            console.log('🎤 Final transcript:', finalTranscript);
-            
-            // Show what was heard
-            const transcriptMessage = {
-              id: Date.now() + Math.random(),
-              type: 'bot',
-              content: `🎤 Heard: "${finalTranscript}"`,
-              timestamp: new Date().toLocaleTimeString()
-            };
-            setMessages(prev => [...prev, transcriptMessage]);
-          }
-          
-          // Show interim results in real-time
-          if (interimTranscript) {
-            console.log('🎤 Interim:', interimTranscript);
-          }
-        };
+          // Show what was heard
+          const transcriptMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: `🎤 Heard: "${finalTranscript}"`,
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, transcriptMessage]);
+        }
         
-        recognitionInstance.onstart = () => {
-          console.log('🎤 Voice recognition started');
-          setCollectedTranscript(''); // Clear previous transcript
-          // Add a message to show recognition has started
+        // Show interim results in real-time
+        if (interimTranscript) {
+          console.log('🎤 Interim:', interimTranscript);
+          // Show interim feedback for mobile users
+          const interimMessage = {
+            id: 'interim-' + Date.now(),
+            type: 'bot',
+            content: `🎤 Hearing: "${interimTranscript}..."`,
+            timestamp: new Date().toLocaleTimeString()
+          };
+          // Replace any existing interim message
+          setMessages(prev => {
+            const filtered = prev.filter(msg => !msg.id.toString().startsWith('interim-'));
+            return [...filtered, interimMessage];
+          });
+        }
+      };
+      
+      recognitionInstance.onstart = () => {
+        console.log('🎤 Voice recognition started');
+        isRecognitionActiveRef.current = true;
+        
+        // Clear any interim messages and add start message
+        setMessages(prev => {
+          const filtered = prev.filter(msg => !msg.id.toString().startsWith('interim-'));
           const startMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 Listening... Click microphone again to stop and use transcript!',
+            content: '🎤 Microphone active! Speak clearly and loudly.',
             timestamp: new Date().toLocaleTimeString()
           };
-          setMessages(prev => [...prev, startMessage]);
-        };
+          return [...filtered, startMessage];
+        });
+      };
+      
+      recognitionInstance.onend = () => {
+        console.log('🎤 Voice recognition ended, isListening:', isListening);
+        isRecognitionActiveRef.current = false;
         
-        recognitionInstance.onend = () => {
-          console.log('🎤 Voice recognition ended');
-          if (isListening) {
-            // If we're still supposed to be listening, restart recognition
-            // This handles automatic restarts for continuous listening
-            try {
-              recognitionInstance.start();
-            } catch (error) {
-              console.log('🎤 Recognition restart failed:', error);
-              setIsListening(false);
+        // Clear any interim messages
+        setMessages(prev => prev.filter(msg => !msg.id.toString().startsWith('interim-')));
+        
+        // For mobile, we manually restart if still supposed to be listening
+        if (isListening) {
+          console.log('🎤 Attempting to restart recognition...');
+          setTimeout(() => {
+            if (isListening && recognitionRef.current) {
+              try {
+                recognitionRef.current.start();
+                console.log('🎤 Recognition restarted successfully');
+              } catch (error) {
+                console.log('🎤 Recognition restart failed:', error.message);
+                if (error.name === 'InvalidStateError') {
+                  // Recognition is already running, ignore
+                  console.log('🎤 Recognition already running, continuing...');
+                } else {
+                  // Real error, stop listening
+                  setIsListening(false);
+                  const errorMessage = {
+                    id: Date.now() + Math.random(),
+                    type: 'bot',
+                    content: '🎤 Failed to continue listening. Please try again.',
+                    timestamp: new Date().toLocaleTimeString()
+                  };
+                  setMessages(prev => [...prev, errorMessage]);
+                }
+              }
             }
-          }
-        };
+          }, 100); // Small delay before restart
+        }
+      };
+      
+      recognitionInstance.onerror = (event) => {
+        console.error('🎤 Voice recognition error:', event.error);
+        isRecognitionActiveRef.current = false;
         
-        recognitionInstance.onerror = (event) => {
-          console.error('🎤 Voice recognition error:', event.error);
-          
-          // Handle different types of errors
-          if (event.error === 'not-allowed') {
-            const errorMessage = {
-              id: Date.now() + Math.random(),
-              type: 'bot',
-              content: '🎤 Microphone access denied. Please allow microphone permission and try again.',
-              timestamp: new Date().toLocaleTimeString()
-            };
-            setMessages(prev => [...prev, errorMessage]);
-            setIsListening(false);
-          } else if (event.error === 'no-speech') {
-            console.log('🎤 No speech detected, continuing to listen...');
-            // Don't stop listening for no-speech errors, just continue
-          } else {
-            const errorMessage = {
-              id: Date.now() + Math.random(),
-              type: 'bot',
-              content: `🎤 Error: ${event.error}. Speech recognition may not be supported on this device/browser.`,
-              timestamp: new Date().toLocaleTimeString()
-            };
-            setMessages(prev => [...prev, errorMessage]);
-            setIsListening(false);
-          }
-        };
+        // Clear any interim messages
+        setMessages(prev => prev.filter(msg => !msg.id.toString().startsWith('interim-')));
         
-        setRecognition(recognitionInstance);
+        // Handle different types of errors
+        if (event.error === 'not-allowed') {
+          const errorMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: '🎤 Microphone access denied. Please allow microphone permission in your browser settings and try again.',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, errorMessage]);
+          setIsListening(false);
+        } else if (event.error === 'no-speech') {
+          console.log('🎤 No speech detected');
+          const noSpeechMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: '🎤 No speech detected. Speak louder or closer to the microphone.',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, noSpeechMessage]);
+          // Don't stop listening for no-speech, just continue
+        } else if (event.error === 'aborted') {
+          console.log('🎤 Recognition aborted');
+          // Don't show error for aborted, it's expected when user stops
+        } else if (event.error === 'network') {
+          const networkMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: '🎤 Network error. Check your internet connection and try again.',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, networkMessage]);
+          setIsListening(false);
+        } else {
+          const errorMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: `🎤 Error: ${event.error}. Try speaking more clearly or restart the microphone.`,
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, errorMessage]);
+          // Don't automatically stop for other errors, let user decide
+        }
+      };
+      
+      return recognitionInstance;
+    }, [isListening]);
+
+    // Initialize recognition when component mounts
+    React.useEffect(() => {
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const newRecognition = createRecognitionInstance();
+        recognitionRef.current = newRecognition;
+        setRecognition(newRecognition);
       } else {
         console.warn('Speech recognition not supported in this browser');
-        // Add a message to inform user that speech recognition is not supported
         const unsupportedMessage = {
           id: Date.now() + Math.random(),
           type: 'bot',
@@ -260,11 +346,23 @@
         };
         setMessages(prev => [...prev, unsupportedMessage]);
       }
-    }, [isListening]);
+
+      // Cleanup function
+      return () => {
+        if (recognitionRef.current && isRecognitionActiveRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch (error) {
+            console.log('Cleanup recognition error:', error);
+          }
+        }
+      };
+    }, []); // Only run once on mount
 
     const toggleListening = () => {
-      if (!recognition) {
-        // If recognition is not available, show error
+      // Always create fresh recognition instance for reliability
+      const currentRecognition = createRecognitionInstance();
+      if (!currentRecognition) {
         const errorMessage = {
           id: Date.now() + Math.random(),
           type: 'bot',
@@ -278,8 +376,20 @@
       if (isListening) {
         // Stop listening and use collected transcript
         setIsListening(false);
-        recognition.stop();
+        
+        // Stop current recognition
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch (error) {
+            console.log('Error stopping recognition:', error);
+          }
+        }
+        
         console.log('🎤 Stopped listening, collected transcript:', collectedTranscript);
+        
+        // Clear any interim messages
+        setMessages(prev => prev.filter(msg => !msg.id.toString().startsWith('interim-')));
         
         if (collectedTranscript.trim()) {
           setInputMessage(collectedTranscript.trim());
@@ -295,26 +405,30 @@
           const noSpeechMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 No speech detected. Try speaking louder or closer to the microphone.',
+            content: '🎤 No speech was detected. Make sure you speak clearly and your microphone is working.',
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, noSpeechMessage]);
         }
       } else {
-        // Start listening
+        // Start listening with fresh recognition instance
         setIsListening(true);
         setInputMessage(''); // Clear input field
         setCollectedTranscript(''); // Clear previous transcript
         
+        // Update the recognition reference
+        recognitionRef.current = currentRecognition;
+        setRecognition(currentRecognition);
+        
         try {
-          recognition.start();
-          console.log('🎤 Started listening...');
+          currentRecognition.start();
+          console.log('🎤 Started listening with fresh recognition instance');
           
           // Add immediate feedback message
           const startMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 Starting microphone... Speak now!',
+            content: '🎤 Starting microphone... Speak now! (Click mic again to stop)',
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, startMessage]);
@@ -325,7 +439,7 @@
           const errorMessage = {
             id: Date.now() + Math.random(),
             type: 'bot',
-            content: '🎤 Failed to start microphone. Please try again.',
+            content: `🎤 Failed to start microphone: ${error.message}. Please try again.`,
             timestamp: new Date().toLocaleTimeString()
           };
           setMessages(prev => [...prev, errorMessage]);
