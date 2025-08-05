@@ -1,4 +1,4 @@
-// ChatbotDialog.js
+﻿// ChatbotDialog.js
 // Sliding chatbot panel with message interface
 
 (function() {
@@ -29,6 +29,22 @@
     // Voice-to-Text (Speech Recognition) states
     const [isListening, setIsListening] = React.useState(false);
     const [recognition, setRecognition] = React.useState(null);
+    
+    // Lab Reservation Form Dialog states
+    const [showReservationForm, setShowReservationForm] = React.useState(false);
+    const [formData, setFormData] = React.useState({
+      name: '',
+      employeeId: '',
+      contactNumber: '',
+      startTime: '',
+      endTime: ''
+    });
+    
+    // Refs for datetime pickers
+    const startTimeInputRef = React.useRef(null);
+    const endTimeInputRef = React.useRef(null);
+    const startTimeFlatpickrRef = React.useRef(null);
+    const endTimeFlatpickrRef = React.useRef(null);
     
     // Set current animation based on voice gender
     const [currentAnimation, setCurrentAnimation] = React.useState(
@@ -71,8 +87,7 @@
       speechSynthesis.cancel();
 
       // Clean the text for better speech - remove all emojis and special characters
-      const cleanText = text
-        // Remove all emoji characters (comprehensive Unicode ranges)
+      const cleanText = text// Remove all emoji characters (comprehensive Unicode ranges)
         .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
         .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc Symbols and Pictographs
         .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport and Map
@@ -368,14 +383,14 @@
         let finalTranscript = '';
         let interimTranscript = '';
         
-        console.log('🎤 onresult triggered, results length:', event.results.length);
+        console.log('onresult triggered, results length:', event.results.length);
         
         // Collect all results
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           const confidence = event.results[i][0].confidence;
           
-          console.log(`🎤 Result ${i}: "${transcript}" (confidence: ${confidence}, final: ${event.results[i].isFinal})`);
+          console.log(`Result ${i}: "${transcript}" (confidence: ${confidence}, final: ${event.results[i].isFinal})`);
           
           if (event.results[i].isFinal) {
             finalTranscript += transcript;
@@ -389,8 +404,8 @@
           setCollectedTranscript(prev => {
             const newTranscript = prev + finalTranscript + ' ';
             collectedTranscriptRef.current = newTranscript; // Keep ref in sync
-            console.log('🎤 Final transcript added:', finalTranscript);
-            console.log('🎤 Total collected:', newTranscript);
+            console.log('Final transcript added:', finalTranscript);
+            console.log('Total collected:', newTranscript);
             return newTranscript;
           });
           
@@ -1126,7 +1141,7 @@
     };
 
     const startIdleAnimation = React.useCallback(() => {
-      console.log('⏰ Starting idle animation timer (from manual reset)');
+      console.log('Starting idle animation timer (from manual reset)');
       
       if (idleTimeoutRef.current) {
         clearTimeout(idleTimeoutRef.current);
@@ -1136,13 +1151,13 @@
       }
       
       idleTimeoutRef.current = setTimeout(() => {
-        console.log('💤 Idle timeout reached - switching to random idle animation (from manual reset)');
+        console.log('Idle timeout reached - switching to random idle animation (from manual reset)');
         setIsIdleMode(true);
         
         // Randomly choose between clock and heart animations
         const idleAnimations = ['clock', 'heart'];
         const randomAnimation = idleAnimations[Math.floor(Math.random() * idleAnimations.length)];
-        console.log(`🎲 Randomly selected ${randomAnimation} animation`);
+        console.log(`Randomly selected ${randomAnimation} animation`);
         
         // Get current pattern at the time of timeout
         setCurrentAnimation(prevAnimation => {
@@ -1164,11 +1179,11 @@
 
     const resetToSmile = React.useCallback(() => {
       // Add logging to track when animation resets
-      console.log('🎭 resetToSmile called - Time:', new Date().toLocaleTimeString());
+      console.log('resetToSmile called - Time:', new Date().toLocaleTimeString());
       
       // Debounce the reset to prevent too frequent calls
       if (debounceTimeoutRef.current) {
-        console.log('🚫 resetToSmile debounced - already scheduled');
+        console.log('resetToSmile debounced - already scheduled');
         return; // Already scheduled, don't trigger again
       }
       
@@ -1186,10 +1201,10 @@
         
         // Use functional update to get current animation at time of execution
         setCurrentAnimation(prevAnimation => {
-          console.log('🎨 Current animation at reset time:', prevAnimation);
+          console.log('Current animation at reset time:', prevAnimation);
           
           if (prevAnimation !== 'smile') {
-            console.log('🎨 Animating transition from', prevAnimation, 'to smile');
+            console.log('Animating transition from', prevAnimation, 'to smile');
             // Smooth transition back to smile
           const currentPattern = prevAnimation === 'clock' 
             ? generateClockPattern(Date.now() * 0.01)
@@ -1203,7 +1218,7 @@
             
             return prevAnimation; // Don't change yet, let transition handle it
           } else {
-            console.log('😊 Already showing smile, just restarting idle timer');
+            console.log('Already showing smile, just restarting idle timer');
             startIdleAnimation();
             return 'smile';
           }
@@ -1215,7 +1230,7 @@
 
     // Only reset on very deliberate click/touch interactions - NO MOUSE MOVEMENT
     const handleDeliberateReset = React.useCallback(() => {
-      console.log('👆 Deliberate click/touch detected - resetting to smile');
+      console.log('Deliberate click/touch detected - resetting to smile');
       resetToSmile();
     }, [resetToSmile]);
 
@@ -1325,7 +1340,7 @@
         // Fallback weather data for Singapore
         const conditions = ['sunny', 'partly cloudy', 'cloudy', 'light rain'];
         const condition = conditions[Math.floor(Math.random() * conditions.length)];
-        const temp = Math.floor(Math.random() * 8) + 26; // 26-34°C typical for Singapore
+        const temp = Math.floor(Math.random() * 8) + 26; // 26-34Â°C typical for Singapore
         const humidity = Math.floor(Math.random() * 30) + 60; // 60-90%
         return `🌤️ Singapore Weather:\n🌡️ Temperature: ${temp}°C\n💧 Humidity: ${humidity}%\n☁️ Condition: ${condition}\n${humidity > 80 ? '🌧️ High chance of rain' : '☀️ Low chance of rain'}`;
       }
@@ -1368,12 +1383,13 @@
              `🎲 Roll a die - say "roll dice" or "dice roll"\n` +
              `🎮 Play a game - say "rock paper scissors" or "play game"\n` +
              `😄 Tell a joke - say "tell me a joke" or just "joke"\n` +
-             `💭 Share a quote - say "give me a quote" or just "quote"\n` +
+             `💭­ Share a quote - say "give me a quote" or just "quote"\n` +
              `🌤️ Get weather - say "weather" or "what's the weather"\n` +
              `🔊 Test speech - say "test speech" to check if audio is working\n` +
-             `� Reserve lab - say "reserve lab" or "book lab"\n` +
+             `📋 Reserve lab - say "reserve lab" or "book lab" (opens easy form dialog)\n` +
              `📋 View reservations - say "show my reservations" or "list reservations"\n` +
-             `❌ Cancel reservation - say "cancel reservation [name]"\n\n` +
+             `📋 Cancel reservation - say "cancel reservation [name]"\n\n` +
+             `💡 Lab reservations now use a simple form dialog - no more typing complex formats!\n\n` +
              `Just type any of these requests and I'll help you out!`;
     };
 
@@ -1439,70 +1455,58 @@
       return date;
     };
 
-    const handleLabReservationRequest = (message) => {
-      const lowerMessage = message.toLowerCase();
+    // Helper function to parse structured reservation input
+    const parseStructuredReservation = (message) => {
+      const lines = message.split('\n');
+      let userName = '';
+      let employeeId = '';
+      let date = '';
+      let time = '';
       
-      // Extract potential reservation details
+      // Parse each line
+      lines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (trimmedLine.toLowerCase().startsWith('name:')) {
+          userName = trimmedLine.substring(5).trim();
+        } else if (trimmedLine.toLowerCase().startsWith('id:')) {
+          employeeId = trimmedLine.substring(3).trim().toUpperCase();
+        } else if (trimmedLine.toLowerCase().startsWith('date:')) {
+          date = trimmedLine.substring(5).trim();
+        } else if (trimmedLine.toLowerCase().startsWith('time:')) {
+          time = trimmedLine.substring(5).trim();
+        }
+      });
+      
+      // Validate required fields
+      if (!userName) {
+        return `📋 **Missing Name**\n\nPlease include your name like: \`Name: John Smith\``;
+      }
+      if (!employeeId) {
+        return `📋 **Missing Employee ID**\n\nPlease include your ID like: \`ID: EMP123\``;
+      }
+      if (!date) {
+        return `📋 **Missing Date**\n\nPlease include the date like: \`Date: tomorrow\` or \`Date: 12/25\``;
+      }
+      if (!time) {
+        return `📋 **Missing Time**\n\nPlease include the time like: \`Time: 2 PM\` or \`Time: 14:30\``;
+      }
+      
+      return createReservation(userName, employeeId, date, time);
+    };
+    
+    // Helper function to create the actual reservation
+    const createReservation = (userName, employeeId, dateStr, timeStr) => {
       const reservations = getStoredReservations();
       
-      // Extract name using various patterns
-      let userName = '';
-      const namePatterns = [
-        /(?:my name is|i am|i'm|name:)\s+([a-zA-Z\s]+?)(?:\s+(?:and|employee|id|,|\.|on|at|for|tomorrow|today|next week|\d))/i,
-        /(?:reserve|book)\s+(?:lab|laboratory)\s+(?:for|under)\s+([a-zA-Z\s]+?)(?:\s+(?:employee|id|,|\.|on|at|for|tomorrow|today|next week|\d))/i,
-        /([a-zA-Z]+\s+[a-zA-Z]+)(?:\s+employee)/i // First Last employee
-      ];
-      
-      for (const pattern of namePatterns) {
-        const match = message.match(pattern);
-        if (match && match[1]) {
-          userName = match[1].trim();
-          break;
+      // Parse date and time
+      let reservationDate;
+      try {
+        reservationDate = parseDateTime(`${dateStr} ${timeStr}`);
+        if (!reservationDate || isNaN(reservationDate.getTime())) {
+          return `📋 **Invalid Date/Time**\n\nPlease use formats like:\n• Date: tomorrow, today, 12/25/2024\n• Time: 2 PM, 14:30, 9:00 AM`;
         }
-      }
-      
-      // Extract employee ID
-      let employeeId = '';
-      const idPatterns = [
-        /(?:employee\s+id|id|emp\s+id|employee\s+number|staff\s+id)[\s:]*([a-zA-Z0-9]+)/i,
-        /\b([a-zA-Z0-9]{3,10})\b.*(?:employee|id|emp)/i // ID followed by employee/id
-      ];
-      
-      for (const pattern of idPatterns) {
-        const match = message.match(pattern);
-        if (match && match[1]) {
-          employeeId = match[1].trim().toUpperCase();
-          break;
-        }
-      }
-      
-      // If missing information, prompt for it
-      if (!userName || !employeeId) {
-        let missingInfo = [];
-        if (!userName) missingInfo.push('👤 Your full name');
-        if (!employeeId) missingInfo.push('🆔 Your employee ID');
-        
-        return `🔬 To reserve the lab, I need the following information:\n\n` +
-               `${missingInfo.join('\n')}\n\n` +
-               `📝 Please provide in this format:\n` +
-               `"Reserve lab for [Your Name], employee ID [Your ID], on [date] at [time]"\n\n` +
-               `Example: "Reserve lab for John Smith, employee ID EMP123, tomorrow at 2 PM"`;
-      }
-      
-      // Extract date/time
-      const timeMatch = message.match(/(?:at|on|for)\s+(.+)/i);
-      let reservationDate = new Date();
-      
-      if (timeMatch && timeMatch[1]) {
-        reservationDate = parseDateTime(timeMatch[1]);
-      } else if (lowerMessage.includes('tomorrow')) {
-        reservationDate = parseDateTime('tomorrow');
-      } else if (lowerMessage.includes('next week')) {
-        reservationDate = parseDateTime('next week');
-      } else {
-        // Default to tomorrow at 10 AM
-        reservationDate = parseDateTime('tomorrow');
-        reservationDate.setHours(10, 0, 0, 0);
+      } catch (error) {
+        return `📋 **Date/Time Error**\n\nPlease check your date and time format.\nExample: \`Date: tomorrow\` and \`Time: 2 PM\``;
       }
       
       // Check for conflicts
@@ -1517,8 +1521,8 @@
       
       if (existingReservation) {
         const conflictDate = new Date(existingReservation.start);
-        return `❌ Lab reservation conflict!\n\n` +
-               `🔬 The lab is already reserved by ${existingReservation.userName} (${existingReservation.employeeId})\n` +
+        return `📋 **Lab Reservation Conflict!**\n\n` +
+               `📋 The lab is already reserved by ${existingReservation.userName} (${existingReservation.employeeId})\n` +
                `📅 Time: ${conflictDate.toLocaleDateString()} at ${conflictDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\n` +
                `Please choose a different time slot.`;
       }
@@ -1544,26 +1548,265 @@
       const formattedTime = reservationDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       const endTime = new Date(reservationDate.getTime() + 2 * 60 * 60 * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       
-      return `� Lab reservation confirmed!\n\n` +
-             `👤 Name: ${userName}\n` +
-             `🆔 Employee ID: ${employeeId}\n` +
-             `📅 Date: ${formattedDate}\n` +
-             `🕐 Time: ${formattedTime} - ${endTime}\n` +
-             `⏱️ Duration: 2 hours\n\n` +
+      return `📋 **Lab Reservation Confirmed!**\n\n` +
+             `👤 **Name:** ${userName}\n` +
+             `🆔 **Employee ID:** ${employeeId}\n` +
+             `📅 **Date:** ${formattedDate}\n` +
+             `⏱️ **Time:** ${formattedTime} - ${endTime}\n` +
+             `🕐 **Duration:** 2 hours\n\n` +
              `✅ Your lab reservation has been added to the calendar. You can view all reservations by saying "show my reservations".`;
+    };
+
+    // Helper function to create reservation from form data (with contact number and specific start/end times)
+    const createReservationFromForm = (userName, employeeId, contactNumber, startDateTime, endDateTime) => {
+      const reservations = getStoredReservations();
+      
+      // Check for conflicts
+      const existingReservation = reservations.find(res => {
+        const existingStart = new Date(res.start);
+        const existingEnd = new Date(res.end);
+        const newStart = startDateTime;
+        const newEnd = endDateTime;
+        
+        return (newStart < existingEnd && newEnd > existingStart);
+      });
+      
+      if (existingReservation) {
+        const conflictDate = new Date(existingReservation.start);
+        const conflictEndDate = new Date(existingReservation.end);
+        return `📋 **Lab Reservation Conflict!**\n\n` +
+               `📋 The lab is already reserved by ${existingReservation.userName} (${existingReservation.employeeId})\n` +
+               `📅 Time: ${conflictDate.toLocaleDateString()}\n` +
+               `⏱️ ${conflictDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${conflictEndDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\n` +
+               `Please choose a different time slot.`;
+      }
+      
+      // Create new reservation
+      const newReservation = {
+        id: Date.now(),
+        title: `Lab Reserved - ${userName}`,
+        userName: userName,
+        employeeId: employeeId,
+        contactNumber: contactNumber,
+        start: startDateTime.toISOString(),
+        end: endDateTime.toISOString(),
+        allDay: false
+      };
+      
+      // Save to localStorage (keeping appointments key for calendar compatibility)
+      const updatedReservations = [...reservations, newReservation];
+      saveReservations(updatedReservations);
+      // Also save to appointments for calendar display
+      localStorage.setItem('appointments', JSON.stringify(updatedReservations));
+      
+      const formattedDate = startDateTime.toLocaleDateString();
+      const formattedStartTime = startDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const formattedEndTime = endDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const duration = Math.round((endDateTime - startDateTime) / (1000 * 60 * 60 * 100)) / 10; // Duration in hours
+      
+      return `📋 **Lab Reservation Confirmed!**\n\n` +
+             `👤 **Name:** ${userName}\n` +
+             `🆔 **Employee ID:** ${employeeId}\n` +
+             `📞 **Contact:** ${contactNumber}\n` +
+             `📅 **Date:** ${formattedDate}\n` +
+             `⏱️ **Time:** ${formattedStartTime} - ${formattedEndTime}\n` +
+             `🕐 **Duration:** ${duration} hours\n\n` +
+             `✅ Your lab reservation has been added to the calendar. You can view all reservations by saying "show my reservations".`;
+    };
+
+    // Lab Reservation Form Functions
+    const showLabReservationForm = () => {
+      setFormData({ name: '', employeeId: '', contactNumber: '', startTime: '', endTime: '' });
+      setShowReservationForm(true);
+    };
+
+    const closeReservationForm = () => {
+      setShowReservationForm(false);
+      setFormData({ name: '', employeeId: '', contactNumber: '', startTime: '', endTime: '' });
+      
+      // Cleanup Flatpickr instances
+      if (startTimeFlatpickrRef.current) {
+        startTimeFlatpickrRef.current.destroy();
+        startTimeFlatpickrRef.current = null;
+      }
+      if (endTimeFlatpickrRef.current) {
+        endTimeFlatpickrRef.current.destroy();
+        endTimeFlatpickrRef.current = null;
+      }
+    };
+
+    const handleFormInputChange = (field, value) => {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    // Initialize Flatpickr when form is shown
+    React.useEffect(() => {
+      if (showReservationForm && window.flatpickr) {
+        // Cleanup existing instances
+        if (startTimeFlatpickrRef.current) {
+          startTimeFlatpickrRef.current.destroy();
+        }
+        if (endTimeFlatpickrRef.current) {
+          endTimeFlatpickrRef.current.destroy();
+        }
+        
+        // Initialize Start Time picker
+        if (startTimeInputRef.current) {
+          startTimeFlatpickrRef.current = window.flatpickr(startTimeInputRef.current, {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            minDate: "today",
+            time_24hr: false,
+            minuteIncrement: 15,
+            defaultHour: 9,
+            defaultMinute: 0,
+            onChange: function(selectedDates, dateStr) {
+              handleFormInputChange('startTime', dateStr);
+              
+              // Update end time minimum to be at least 1 hour after start time
+              if (selectedDates.length > 0 && endTimeFlatpickrRef.current) {
+                const minEndTime = new Date(selectedDates[0]);
+                minEndTime.setHours(minEndTime.getHours() + 1);
+                endTimeFlatpickrRef.current.set('minDate', minEndTime);
+                
+                // If end time is not set or is before the new minimum, set it to 2 hours after start
+                if (!formData.endTime || new Date(formData.endTime) <= minEndTime) {
+                  const defaultEndTime = new Date(selectedDates[0]);
+                  defaultEndTime.setHours(defaultEndTime.getHours() + 2);
+                  endTimeFlatpickrRef.current.setDate(defaultEndTime);
+                }
+              }
+            }
+          });
+        }
+        
+        // Initialize End Time picker
+        if (endTimeInputRef.current) {
+          endTimeFlatpickrRef.current = window.flatpickr(endTimeInputRef.current, {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            minDate: "today",
+            time_24hr: false,
+            minuteIncrement: 15,
+            defaultHour: 11,
+            defaultMinute: 0,
+            onChange: function(selectedDates, dateStr) {
+              handleFormInputChange('endTime', dateStr);
+            }
+          });
+        }
+      }
+      
+      // Cleanup function
+      return () => {
+        if (startTimeFlatpickrRef.current) {
+          startTimeFlatpickrRef.current.destroy();
+          startTimeFlatpickrRef.current = null;
+        }
+        if (endTimeFlatpickrRef.current) {
+          endTimeFlatpickrRef.current.destroy();
+          endTimeFlatpickrRef.current = null;
+        }
+      };
+    }, [showReservationForm]);
+
+    const submitReservationForm = async () => {
+      // Validate form data
+      if (!formData.name.trim()) {
+        alert('Please enter your name');
+        return;
+      }
+      if (!formData.employeeId.trim()) {
+        alert('Please enter your employee ID');
+        return;
+      }
+      if (!formData.contactNumber.trim()) {
+        alert('Please enter your contact number');
+        return;
+      }
+      if (!formData.startTime.trim()) {
+        alert('Please select a start time');
+        return;
+      }
+      if (!formData.endTime.trim()) {
+        alert('Please select an end time');
+        return;
+      }
+
+      try {
+        // Parse the datetime values and validate
+        const startDateTime = new Date(formData.startTime);
+        const endDateTime = new Date(formData.endTime);
+        
+        if (isNaN(startDateTime.getTime())) {
+          alert('Please select a valid start time');
+          return;
+        }
+        if (isNaN(endDateTime.getTime())) {
+          alert('Please select a valid end time');
+          return;
+        }
+        if (endDateTime <= startDateTime) {
+          alert('End time must be after start time');
+          return;
+        }
+
+        // Create reservation using existing function with start and end times
+        const result = createReservationFromForm(
+          formData.name.trim(),
+          formData.employeeId.trim().toUpperCase(),
+          formData.contactNumber.trim(),
+          startDateTime,
+          endDateTime
+        );
+
+        // Add bot message with result
+        const botMessage = {
+          id: Date.now(),
+          type: 'bot',
+          content: result,
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, botMessage]);
+
+        // Close form and speak the result
+        closeReservationForm();
+        speakText(result);
+      } catch (error) {
+        alert('Error creating reservation: ' + error.message);
+      }
+    };
+
+    const handleLabReservationRequest = (message) => {
+      const lowerMessage = message.toLowerCase();
+      
+      // Check if this is a reservation request
+      if (lowerMessage.includes('reserve') || lowerMessage.includes('book') || lowerMessage.includes('lab')) {
+        // Show the reservation form dialog
+        showLabReservationForm();
+        return `📋 **Lab Reservation Form Opening...**\n\nA form dialog will appear to collect your reservation details. Please fill in:\n• Your full name\n• Employee ID\n• Contact number\n• Start time\n• End time\n\n💡 This makes it easier than typing everything manually!`;
+      }
+      
+      // Handle structured input (fallback for when form is not used)
+      if (message.includes('Name:') || message.includes('ID:') || message.includes('Date:')) {
+        return parseStructuredReservation(message);
+      }
+      
+      // If no structured format detected, give friendly guidance
+      return `📋 To reserve the lab, say something like:\n• "Reserve lab" or "Book lab" (opens form dialog)\n• Or use format: "Reserve lab Name: John Smith\\nID: EMP123\\nDate: tomorrow\\nTime: 2 PM"`;
     };
 
     const handleViewReservations = () => {
       const reservations = getStoredReservations();
       
       if (reservations.length === 0) {
-        return `� No lab reservations found.\n\nTo reserve the lab, say something like:\n• "Reserve lab for John Smith, employee ID EMP123, tomorrow at 2 PM"\n• "Book lab for Jane Doe, ID STAFF456, next week at 10 AM"\n• "Reserve laboratory for Bob Wilson, employee ID LAB789, today at 3 PM"`;
+        return `📋 No lab reservations found.\n\nTo reserve the lab, say something like:\n "Reserve lab Name: John Smith\nID: EMP123\nDate: tomorrow\nTime: 2 PM"`;
       }
       
       // Sort reservations by date
       const sortedReservations = reservations.sort((a, b) => new Date(a.start) - new Date(b.start));
       
-      let response = `� Lab reservations:\n\n`;
+      let response = `📋 Lab reservations:\n\n`;
       
       sortedReservations.forEach((reservation, index) => {
         const startDate = new Date(reservation.start);
@@ -1572,10 +1815,11 @@
         const formattedStartTime = startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         const formattedEndTime = endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
-        response += `${index + 1}. � ${reservation.userName}\n`;
+        response += `${index + 1}. 👤 ${reservation.userName}\n`;
         response += `   🆔 Employee ID: ${reservation.employeeId}\n`;
-        response += `   📅 ${formattedDate}\n`;
-        response += `   🕐 ${formattedStartTime} - ${formattedEndTime}\n\n`;
+        response += `   📱 Contact: ${reservation.contactNumber || 'N/A'}\n`;
+        response += `   📅… ${formattedDate}\n`;
+        response += `   ⏱️ ${formattedStartTime} - ${formattedEndTime}\n\n`;
       });
       
       response += `To cancel a reservation, say "cancel reservation [name]" or click on it in the calendar.`;
@@ -1587,7 +1831,7 @@
       const reservations = getStoredReservations();
       
       if (reservations.length === 0) {
-        return `� No lab reservations to cancel.`;
+        return `❌ No lab reservations to cancel.`;
       }
       
       // Try to extract name from message
@@ -1595,7 +1839,7 @@
       
       if (!cancelMatch || !cancelMatch[1]) {
         // Show list of reservations to cancel
-        let response = `� Which lab reservation would you like to cancel?\n\n`;
+        let response = `❓ Which lab reservation would you like to cancel?\n\n`;
         reservations.forEach((reservation, index) => {
           const startDate = new Date(reservation.start);
           const formattedDate = startDate.toLocaleDateString();
@@ -1615,7 +1859,7 @@
       );
       
       if (reservationIndex === -1) {
-        return `� Could not find a lab reservation for "${cancelMatch[1]}". Please check the name or employee ID and try again.`;
+        return `❌ Could not find a lab reservation for "${cancelMatch[1]}". Please check the name or employee ID and try again.`;
       }
       
       // Remove the reservation
@@ -1632,8 +1876,9 @@
       const formattedEndTime = endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       
       return `❌ Lab reservation cancelled successfully!\n\n` +
-             `� Cancelled: ${cancelledReservation.userName}\n` +
+             `✅ Cancelled: ${cancelledReservation.userName}\n` +
              `🆔 Employee ID: ${cancelledReservation.employeeId}\n` +
+             `📱 Contact: ${cancelledReservation.contactNumber || 'N/A'}\n` +
              `📅 Was scheduled for: ${formattedDate}\n` +
              `🕐 Time: ${formattedStartTime} - ${formattedEndTime}\n\n` +
              `The reservation has been removed from the calendar.`;
@@ -1649,11 +1894,6 @@
         return `🔊 Speech test initiated. You should hear: "${testMessage}"`;
       }
       
-      // Lab reservation requests
-      if (lowerMessage.includes('reserve') || lowerMessage.includes('reservation') || lowerMessage.includes('lab') || lowerMessage.includes('laboratory') || lowerMessage.includes('book lab')) {
-        return handleLabReservationRequest(message);
-      }
-      
       // View lab reservations
       if (lowerMessage.includes('show reservations') || lowerMessage.includes('list reservations') || lowerMessage.includes('my reservations') || lowerMessage.includes('view reservations')) {
         return handleViewReservations();
@@ -1663,13 +1903,18 @@
       if (lowerMessage.includes('cancel reservation') || lowerMessage.includes('delete reservation') || lowerMessage.includes('remove reservation')) {
         return handleCancelReservation(message);
       }
+
+      // Lab reservation requests
+      if (lowerMessage.includes('reserve') || lowerMessage.includes('reservation') || lowerMessage.includes('lab') || lowerMessage.includes('laboratory') || lowerMessage.includes('book lab')) {
+        return handleLabReservationRequest(message);
+      }
       
       // Quote requests
       if (lowerMessage.includes('quote') || lowerMessage.includes('inspire') || lowerMessage.includes('wisdom')) {
         setIsLoading(true);
         const quote = await getRandomQuote();
         setIsLoading(false);
-        return `💭 ${quote}`;
+        return `💭­ ${quote}`;
       }
       
       // Joke requests
@@ -1747,7 +1992,7 @@
 
     React.useEffect(() => {
       if (isOpen) {
-        console.log('🚪 ChatbotDialog opened - initializing smile animation (ONE TIME ONLY)');
+        console.log('ChatbotDialog opened - initializing smile animation (ONE TIME ONLY)');
         setCurrentAnimation('smile');
         setIsIdleMode(false);
         
@@ -1760,7 +2005,7 @@
         }
         
         idleTimeoutRef.current = setTimeout(() => {
-          console.log('💤 Idle timeout reached - switching to random idle animation');
+          console.log('💭¤ Idle timeout reached - switching to random idle animation');
           setIsIdleMode(true);
           
           // Randomly choose between clock and heart animations
@@ -1772,7 +2017,7 @@
           const currentPattern = patterns['smile']; // Always start from smile when opening
           
           animatePatternTransition(currentPattern, randomAnimation, () => {
-            console.log(`🎨 ${randomAnimation === 'clock' ? '🕐' : '💖'} ${randomAnimation} animation started`);
+            console.log(`🎨 ${randomAnimation === 'clock' ? '⏱️' : '💭–'} ${randomAnimation} animation started`);
             setCurrentAnimation(randomAnimation);
           });
         }, 3000);
@@ -2165,8 +2410,299 @@
           }, isLoading ? '⏳' : '📤')
         ])
       ])
-    ]);
+    ].concat(showReservationForm ? [
+      // Lab Reservation Form Dialog Overlay
+      React.createElement('div', {
+        key: 'form-overlay',
+        style: {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000
+        },
+        onClick: (e) => {
+          if (e.target === e.currentTarget) closeReservationForm();
+        }
+      }, [
+        // Form Dialog
+        React.createElement('div', {
+          key: 'form-dialog',
+          style: {
+            backgroundColor: theme === 'light' ? '#fff' : '#2d3748',
+            borderRadius: '16px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '400px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+            color: theme === 'light' ? '#333' : '#fff',
+            fontFamily: 'Roboto Condensed, sans-serif'
+          }
+        }, [
+          // Form Header
+          React.createElement('div', {
+            key: 'form-header',
+            style: {
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              paddingBottom: '12px',
+              borderBottom: `1px solid ${theme === 'light' ? '#e0e0e0' : '#4a5568'}`
+            }
+          }, [
+            React.createElement('h3', {
+              key: 'form-title',
+              style: {
+                margin: 0,
+                fontSize: '20px',
+                fontWeight: 'bold'
+              }
+            }, '📋 Lab Reservation Form'),
+            React.createElement('button', {
+              key: 'form-close',
+              onClick: closeReservationForm,
+              style: {
+                background: 'none',
+                border: 'none',
+                fontSize: '20px',
+                cursor: 'pointer',
+                color: theme === 'light' ? '#666' : '#ccc',
+                padding: '4px'
+              }
+            }, '✕')
+          ]),
+          
+          // Form Fields
+          React.createElement('div', {
+            key: 'form-fields',
+            style: { marginBottom: '20px' }
+          }, [
+            // Name Field
+            React.createElement('div', {
+              key: 'name-field',
+              style: { marginBottom: '16px' }
+            }, [
+              React.createElement('label', {
+                key: 'name-label',
+                style: {
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }
+              }, '👤 Full Name *'),
+              React.createElement('input', {
+                key: 'name-input',
+                type: 'text',
+                value: formData.name,
+                onChange: (e) => handleFormInputChange('name', e.target.value),
+                placeholder: 'Enter your full name',
+                style: {
+                  width: '100%',
+                  padding: '10px',
+                  border: `1px solid ${theme === 'light' ? '#ddd' : '#4a5568'}`,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  backgroundColor: theme === 'light' ? '#fff' : '#1a1a2e',
+                  color: theme === 'light' ? '#333' : '#fff',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }
+              })
+            ]),
+            
+            // Employee ID Field
+            React.createElement('div', {
+              key: 'id-field',
+              style: { marginBottom: '16px' }
+            }, [
+              React.createElement('label', {
+                key: 'id-label',
+                style: {
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }
+              }, '🆔 Employee ID *'),
+              React.createElement('input', {
+                key: 'id-input',
+                type: 'text',
+                value: formData.employeeId,
+                onChange: (e) => handleFormInputChange('employeeId', e.target.value),
+                placeholder: 'e.g., EMP123',
+                style: {
+                  width: '100%',
+                  padding: '10px',
+                  border: `1px solid ${theme === 'light' ? '#ddd' : '#4a5568'}`,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  backgroundColor: theme === 'light' ? '#fff' : '#1a1a2e',
+                  color: theme === 'light' ? '#333' : '#fff',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }
+              })
+            ]),
+            
+            // Contact Number Field
+            React.createElement('div', {
+              key: 'contact-field',
+              style: { marginBottom: '16px' }
+            }, [
+              React.createElement('label', {
+                key: 'contact-label',
+                style: {
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }
+              }, '📱 Contact Number *'),
+              React.createElement('input', {
+                key: 'contact-input',
+                type: 'text',
+                value: formData.contactNumber,
+                onChange: (e) => handleFormInputChange('contactNumber', e.target.value),
+                placeholder: 'e.g., +65 9123 4567',
+                style: {
+                  width: '100%',
+                  padding: '10px',
+                  border: `1px solid ${theme === 'light' ? '#ddd' : '#4a5568'}`,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  backgroundColor: theme === 'light' ? '#fff' : '#1a1a2e',
+                  color: theme === 'light' ? '#333' : '#fff',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }
+              })
+            ]),
+            
+            // DateTime Field
+            React.createElement('div', {
+              key: 'starttime-field',
+              style: { marginBottom: '16px' }
+            }, [
+              React.createElement('label', {
+                key: 'starttime-label',
+                style: {
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }
+              }, '🕐 Start Time *'),
+              React.createElement('input', {
+                key: 'starttime-input',
+                type: 'text',
+                value: formData.startTime,
+                onChange: (e) => handleFormInputChange('startTime', e.target.value),
+                placeholder: 'Select start date and time',
+                ref: startTimeInputRef,
+                readOnly: true,
+                style: {
+                  width: '100%',
+                  padding: '10px',
+                  border: `1px solid ${theme === 'light' ? '#ddd' : '#4a5568'}`,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  backgroundColor: theme === 'light' ? '#fff' : '#1a1a2e',
+                  color: theme === 'light' ? '#333' : '#fff',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  cursor: 'pointer'
+                }
+              })
+            ]),
+            
+            // End Time Field
+            React.createElement('div', {
+              key: 'endtime-field',
+              style: { marginBottom: '16px' }
+            }, [
+              React.createElement('label', {
+                key: 'endtime-label',
+                style: {
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }
+              }, '🕕 End Time *'),
+              React.createElement('input', {
+                key: 'endtime-input',
+                type: 'text',
+                value: formData.endTime,
+                onChange: (e) => handleFormInputChange('endTime', e.target.value),
+                placeholder: 'Select end date and time',
+                ref: endTimeInputRef,
+                readOnly: true,
+                style: {
+                  width: '100%',
+                  padding: '10px',
+                  border: `1px solid ${theme === 'light' ? '#ddd' : '#4a5568'}`,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  backgroundColor: theme === 'light' ? '#fff' : '#1a1a2e',
+                  color: theme === 'light' ? '#333' : '#fff',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  cursor: 'pointer'
+                }
+              })
+            ])
+          ]),
+          
+          // Form Buttons
+          React.createElement('div', {
+            key: 'form-buttons',
+            style: {
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }
+          }, [
+            React.createElement('button', {
+              key: 'cancel-btn',
+              onClick: closeReservationForm,
+              style: {
+                padding: '10px 20px',
+                border: `1px solid ${theme === 'light' ? '#ddd' : '#4a5568'}`,
+                borderRadius: '8px',
+                backgroundColor: 'transparent',
+                color: theme === 'light' ? '#666' : '#ccc',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }
+            }, 'Cancel'),
+            React.createElement('button', {
+              key: 'submit-btn',
+              onClick: submitReservationForm,
+              style: {
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: theme === 'light' ? 'rgb(180, 200, 220)' : 'rgb(210, 230, 250)',
+                color: theme === 'light' ? '#fff' : '#1a1a2e',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }
+            }, '📋 Reserve Lab')
+          ])
+        ])
+      ])
+    ] : []));
   }
 
   window.ChatbotDialog = ChatbotDialog;
 })();
+
