@@ -37,14 +37,12 @@
       employeeId: '',
       contactNumber: '',
       startTime: '',
-      endTime: ''
+      duration: ''
     });
     
     // Refs for datetime pickers
     const startTimeInputRef = React.useRef(null);
-    const endTimeInputRef = React.useRef(null);
     const startTimeFlatpickrRef = React.useRef(null);
-    const endTimeFlatpickrRef = React.useRef(null);
     
     // Set current animation based on voice gender
     const [currentAnimation, setCurrentAnimation] = React.useState(
@@ -1622,16 +1620,12 @@
 
     const closeReservationForm = () => {
       setShowReservationForm(false);
-      setFormData({ name: '', employeeId: '', contactNumber: '', startTime: '', endTime: '' });
+      setFormData({ name: '', employeeId: '', contactNumber: '', startTime: '', duration: '' });
       
       // Cleanup Flatpickr instances
       if (startTimeFlatpickrRef.current) {
         startTimeFlatpickrRef.current.destroy();
         startTimeFlatpickrRef.current = null;
-      }
-      if (endTimeFlatpickrRef.current) {
-        endTimeFlatpickrRef.current.destroy();
-        endTimeFlatpickrRef.current = null;
       }
     };
 
@@ -1646,9 +1640,6 @@
         if (startTimeFlatpickrRef.current) {
           startTimeFlatpickrRef.current.destroy();
         }
-        if (endTimeFlatpickrRef.current) {
-          endTimeFlatpickrRef.current.destroy();
-        }
         
         // Initialize Start Time picker
         if (startTimeInputRef.current) {
@@ -1662,36 +1653,6 @@
             defaultMinute: 0,
             onChange: function(selectedDates, dateStr) {
               handleFormInputChange('startTime', dateStr);
-              
-              // Update end time minimum to be at least 1 hour after start time
-              if (selectedDates.length > 0 && endTimeFlatpickrRef.current) {
-                const minEndTime = new Date(selectedDates[0]);
-                minEndTime.setHours(minEndTime.getHours() + 1);
-                endTimeFlatpickrRef.current.set('minDate', minEndTime);
-                
-                // If end time is not set or is before the new minimum, set it to 2 hours after start
-                if (!formData.endTime || new Date(formData.endTime) <= minEndTime) {
-                  const defaultEndTime = new Date(selectedDates[0]);
-                  defaultEndTime.setHours(defaultEndTime.getHours() + 2);
-                  endTimeFlatpickrRef.current.setDate(defaultEndTime);
-                }
-              }
-            }
-          });
-        }
-        
-        // Initialize End Time picker
-        if (endTimeInputRef.current) {
-          endTimeFlatpickrRef.current = window.flatpickr(endTimeInputRef.current, {
-            enableTime: true,
-            dateFormat: "Y-m-d H:i",
-            minDate: "today",
-            time_24hr: false,
-            minuteIncrement: 15,
-            defaultHour: 11,
-            defaultMinute: 0,
-            onChange: function(selectedDates, dateStr) {
-              handleFormInputChange('endTime', dateStr);
             }
           });
         }
@@ -1702,10 +1663,6 @@
         if (startTimeFlatpickrRef.current) {
           startTimeFlatpickrRef.current.destroy();
           startTimeFlatpickrRef.current = null;
-        }
-        if (endTimeFlatpickrRef.current) {
-          endTimeFlatpickrRef.current.destroy();
-          endTimeFlatpickrRef.current = null;
         }
       };
     }, [showReservationForm]);
@@ -1728,28 +1685,28 @@
         alert('Please select a start time');
         return;
       }
-      if (!formData.endTime.trim()) {
-        alert('Please select an end time');
+      if (!formData.duration) {
+        alert('Please select a duration');
         return;
       }
 
       try {
-        // Parse the datetime values and validate
+        // Parse the datetime values and calculate end time
         const startDateTime = new Date(formData.startTime);
-        const endDateTime = new Date(formData.endTime);
+        const durationHours = parseFloat(formData.duration);
         
         if (isNaN(startDateTime.getTime())) {
           alert('Please select a valid start time');
           return;
         }
-        if (isNaN(endDateTime.getTime())) {
-          alert('Please select a valid end time');
+        if (isNaN(durationHours) || durationHours <= 0) {
+          alert('Please select a valid duration');
           return;
         }
-        if (endDateTime <= startDateTime) {
-          alert('End time must be after start time');
-          return;
-        }
+
+        // Calculate end time based on start time and duration
+        const endDateTime = new Date(startDateTime);
+        endDateTime.setHours(endDateTime.getHours() + durationHours);
 
         // Create reservation using existing function with start and end times
         const result = createReservationFromForm(
@@ -1784,7 +1741,7 @@
       if (lowerMessage.includes('reserve') || lowerMessage.includes('book') || lowerMessage.includes('lab')) {
         // Show the reservation form dialog
         showLabReservationForm();
-        return `📋 **Lab Reservation Form Opening...**\n\nA form dialog will appear to collect your reservation details. Please fill in:\n• Your full name\n• Employee ID\n• Contact number\n• Start time\n• End time\n\n💡 This makes it easier than typing everything manually!`;
+        return `📋 **Lab Reservation Form Opening...**\n\nA form dialog will appear to collect your reservation details. Please fill in:\n• Your full name\n• Employee ID\n• Contact number\n• Start time\n• Duration\n\n💡 This makes it easier than typing everything manually!`;
       }
       
       // Handle structured input (fallback for when form is not used)
@@ -2622,28 +2579,24 @@
               })
             ]),
             
-            // End Time Field
+            // Duration Field
             React.createElement('div', {
-              key: 'endtime-field',
+              key: 'duration-field',
               style: { marginBottom: '16px' }
             }, [
               React.createElement('label', {
-                key: 'endtime-label',
+                key: 'duration-label',
                 style: {
                   display: 'block',
                   marginBottom: '6px',
                   fontWeight: 'bold',
                   fontSize: '14px'
                 }
-              }, '🕕 End Time *'),
-              React.createElement('input', {
-                key: 'endtime-input',
-                type: 'text',
-                value: formData.endTime,
-                onChange: (e) => handleFormInputChange('endTime', e.target.value),
-                placeholder: 'Select end date and time',
-                ref: endTimeInputRef,
-                readOnly: true,
+              }, '⏱️ Duration (hours) *'),
+              React.createElement('select', {
+                key: 'duration-input',
+                value: formData.duration,
+                onChange: (e) => handleFormInputChange('duration', e.target.value),
                 style: {
                   width: '100%',
                   padding: '10px',
@@ -2656,7 +2609,49 @@
                   boxSizing: 'border-box',
                   cursor: 'pointer'
                 }
-              })
+              }, [
+                React.createElement('option', {
+                  key: 'duration-placeholder',
+                  value: '',
+                  disabled: true
+                }, 'Select duration'),
+                React.createElement('option', {
+                  key: 'duration-0.5',
+                  value: '0.5'
+                }, '30 minutes'),
+                React.createElement('option', {
+                  key: 'duration-1',
+                  value: '1'
+                }, '1 hour'),
+                React.createElement('option', {
+                  key: 'duration-1.5',
+                  value: '1.5'
+                }, '1.5 hours'),
+                React.createElement('option', {
+                  key: 'duration-2',
+                  value: '2'
+                }, '2 hours'),
+                React.createElement('option', {
+                  key: 'duration-2.5',
+                  value: '2.5'
+                }, '2.5 hours'),
+                React.createElement('option', {
+                  key: 'duration-3',
+                  value: '3'
+                }, '3 hours'),
+                React.createElement('option', {
+                  key: 'duration-4',
+                  value: '4'
+                }, '4 hours'),
+                React.createElement('option', {
+                  key: 'duration-6',
+                  value: '6'
+                }, '6 hours'),
+                React.createElement('option', {
+                  key: 'duration-8',
+                  value: '8'
+                }, '8 hours')
+              ])
             ])
           ]),
           
