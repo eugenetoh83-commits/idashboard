@@ -18,8 +18,190 @@
     const idleTimeoutRef = React.useRef(null);
     const cycleIntervalRef = React.useRef(null);
     const debounceTimeoutRef = React.useRef(null);
-    const [currentAnimation, setCurrentAnimation] = React.useState('smile');
+    
+    // Initialize voice gender from localStorage
+    const [voiceGender, setVoiceGender] = React.useState(() => {
+      const stored = localStorage.getItem('voiceGender');
+      return stored === 'female' ? 'female' : 'male'; // default to male if not set
+    });
+    
+    // Voice-to-Text (Speech Recognition) states
+    const [isListening, setIsListening] = React.useState(false);
+    const [recognition, setRecognition] = React.useState(null);
+    
+    // Set current animation based on voice gender
+    const [currentAnimation, setCurrentAnimation] = React.useState(
+      () => voiceGender === 'female' ? 'femaleSmile' : 'smile'
+    );
     const [isIdleMode, setIsIdleMode] = React.useState(false);
+
+    // Update animation when voice gender changes
+    React.useEffect(() => {
+      if (!isIdleMode && currentAnimation === 'smile' || currentAnimation === 'femaleSmile') {
+        setCurrentAnimation(voiceGender === 'female' ? 'femaleSmile' : 'smile');
+      }
+    }, [voiceGender, isIdleMode, currentAnimation]);
+
+    // Function to toggle voice gender
+    const toggleVoiceGender = () => {
+      const newGender = voiceGender === 'female' ? 'male' : 'female';
+      setVoiceGender(newGender);
+      localStorage.setItem('voiceGender', newGender);
+    };
+
+    // Text-to-Speech functionality
+    const [isSpeaking, setIsSpeaking] = React.useState(false);
+    const speechSynthesis = window.speechSynthesis;
+    
+    const speakText = (text) => {
+      if (!speechSynthesis) {
+        console.warn('Speech synthesis not supported');
+        return;
+      }
+
+      // Cancel any ongoing speech
+      speechSynthesis.cancel();
+
+      // Clean the text for better speech
+      const cleanText = text
+        .replace(/🤖|😄|💭|🌤️|🪙|🎲|🎮|🤔/g, '') // Remove emojis
+        .replace(/\n/g, ' ') // Replace newlines with spaces
+        .trim();
+
+      if (!cleanText) return;
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      
+      // Configure voice based on gender preference
+      const voices = speechSynthesis.getVoices();
+      const femaleVoices = voices.filter(voice => 
+        voice.name.toLowerCase().includes('female') || 
+        voice.name.toLowerCase().includes('woman') ||
+        voice.name.toLowerCase().includes('zira') ||
+        voice.name.toLowerCase().includes('susan')
+      );
+      const maleVoices = voices.filter(voice => 
+        voice.name.toLowerCase().includes('male') || 
+        voice.name.toLowerCase().includes('man') ||
+        voice.name.toLowerCase().includes('david') ||
+        voice.name.toLowerCase().includes('mark')
+      );
+
+      if (voiceGender === 'female' && femaleVoices.length > 0) {
+        utterance.voice = femaleVoices[0];
+      } else if (voiceGender === 'male' && maleVoices.length > 0) {
+        utterance.voice = maleVoices[0];
+      }
+
+      // Voice settings
+      utterance.rate = 0.9;
+      utterance.pitch = voiceGender === 'female' ? 1.1 : 0.9;
+      utterance.volume = 0.8;
+
+      // Event handlers
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        console.log('🔊 Started speaking:', cleanText.substring(0, 50) + '...');
+      };
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        console.log('🔇 Finished speaking');
+      };
+
+      utterance.onerror = (event) => {
+        setIsSpeaking(false);
+        console.error('Speech synthesis error:', event.error);
+      };
+
+      // Speak the text
+      speechSynthesis.speak(utterance);
+    };
+
+    const stopSpeaking = () => {
+      if (speechSynthesis) {
+        speechSynthesis.cancel();
+        setIsSpeaking(false);
+      }
+    };
+
+    // Load voices when component mounts
+    React.useEffect(() => {
+      if (speechSynthesis) {
+        // Voices might not be loaded immediately, so we wait for them
+        const loadVoices = () => {
+          const voices = speechSynthesis.getVoices();
+          console.log('Available voices:', voices.map(v => v.name));
+        };
+        
+        // Load voices immediately if available
+        loadVoices();
+        
+        // Also listen for voices changed event
+        speechSynthesis.onvoiceschanged = loadVoices;
+        
+        return () => {
+          speechSynthesis.onvoiceschanged = null;
+        };
+      }
+    }, []);
+
+    // Speech Recognition (Voice-to-Text) functionality
+    React.useEffect(() => {
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognitionInstance = new SpeechRecognition();
+        
+        recognitionInstance.continuous = false;
+        recognitionInstance.interimResults = false;
+        recognitionInstance.lang = 'en-US';
+        
+        recognitionInstance.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          console.log('🎤 Voice input received:', transcript);
+          setInputMessage(transcript);
+          setIsListening(false);
+          
+          // Auto-submit the voice message after a short delay
+          setTimeout(() => {
+            if (transcript.trim()) {
+              handleSendMessage();
+            }
+          }, 500);
+        };
+        
+        recognitionInstance.onend = () => {
+          setIsListening(false);
+          console.log('🎤 Voice recognition ended');
+        };
+        
+        recognitionInstance.onerror = (event) => {
+          setIsListening(false);
+          console.error('🎤 Voice recognition error:', event.error);
+        };
+        
+        setRecognition(recognitionInstance);
+      } else {
+        console.warn('Speech recognition not supported in this browser');
+      }
+    }, []);
+
+    const startListening = () => {
+      if (recognition && !isListening) {
+        setIsListening(true);
+        setInputMessage(''); // Clear input field
+        recognition.start();
+        console.log('🎤 Started listening...');
+      }
+    };
+
+    const stopListening = () => {
+      if (recognition && isListening) {
+        setIsListening(false);
+        recognition.stop();
+        console.log('🎤 Stopped listening');
+      }
+    };
 
     // Dot matrix patterns (8x8 grid)
     const patterns = {
@@ -31,6 +213,16 @@
         [1,0,1,0,0,1,0,1],
         [1,0,0,1,1,0,0,1],
         [0,1,0,0,0,0,1,0],
+        [0,0,1,1,1,1,0,0]
+      ],
+      femaleSmile: [
+        [0,0,1,1,1,1,0,0],
+        [0,1,0,0,0,0,1,0],
+        [1,0,1,0,0,1,0,1],
+        [1,0,0,0,0,0,0,1],
+        [1,0,1,0,0,1,0,1],
+        [1,0,0,1,1,0,0,1],
+        [0,1,1,0,0,1,1,0],
         [0,0,1,1,1,1,0,0]
       ],
       clock: [
@@ -51,16 +243,6 @@
         [0,1,1,1,1,1,1,0],
         [0,0,1,1,1,1,0,0],
         [0,0,0,1,1,0,0,0],
-        [0,0,0,0,0,0,0,0]
-      ],
-      fish: [
-        [0,0,0,0,0,0,0,0],
-        [0,0,1,1,1,0,0,0],
-        [0,1,1,1,1,1,0,1],
-        [1,1,1,1,1,1,1,0],
-        [0,1,1,1,1,1,0,1],
-        [0,0,1,1,1,0,0,0],
-        [0,0,0,0,0,0,0,0],
         [0,0,0,0,0,0,0,0]
       ]
     };
@@ -163,90 +345,7 @@
       return basePattern;
     };
 
-    const generateFishPattern = (animationPhase) => {
-      // Create a base fish pattern
-      const basePattern = [
-        [0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,0]
-      ].map(row => [...row]); // Deep copy to avoid mutation
 
-      // Swimming motion - fish moves horizontally with gentle vertical bobbing
-      const swimPhase = animationPhase * 1.5;
-      const fishX = Math.round(3 + Math.sin(swimPhase * 0.8) * 2); // Horizontal swimming
-      const fishY = Math.round(3 + Math.sin(swimPhase * 1.2) * 0.8); // Gentle vertical bobbing
-      
-      // Fish body shape (relative to fish center)
-      const fishBody = [
-        [-1, -2], [-1, -1], [-1, 0], // Head
-        [0, -2], [0, -1], [0, 0], [0, 1], // Body
-        [1, -1], [1, 0], // Mid body
-        [2, 0] // Tail base
-      ];
-      
-      // Animated tail fin (swims back and forth)
-      const tailPhase = animationPhase * 3;
-      const tailOffset = Math.sin(tailPhase) > 0 ? 1 : -1;
-      const tailFin = [
-        [2, tailOffset], // Tail fin
-        [3, tailOffset * 2] // Tail tip
-      ];
-      
-      // Draw fish body
-      fishBody.forEach(([dx, dy]) => {
-        const x = fishX + dx;
-        const y = fishY + dy;
-        if (x >= 0 && x < 8 && y >= 0 && y < 8) {
-          basePattern[y][x] = 1;
-        }
-      });
-      
-      // Draw animated tail
-      tailFin.forEach(([dx, dy]) => {
-        const x = fishX + dx;
-        const y = fishY + dy;
-        if (x >= 0 && x < 8 && y >= 0 && y < 8) {
-          basePattern[y][x] = 1;
-        }
-      });
-      
-      // Add swimming bubbles
-      const bubbleIntensity = Math.sin(animationPhase * 2) * 0.5 + 0.5;
-      if (bubbleIntensity > 0.7) {
-        const bubblePositions = [
-          [1, 1], [0, 2], [1, 6], [0, 5], // Top bubbles
-          [6, 1], [7, 3], [6, 6], [7, 4]  // Bottom bubbles
-        ];
-        
-        bubblePositions.forEach(([row, col], index) => {
-          // Each bubble appears at different times
-          const bubblePhase = animationPhase * 3 + index * 0.5;
-          if ((Math.sin(bubblePhase) + 1) * 0.5 > 0.6) {
-            basePattern[row][col] = 1;
-          }
-        });
-      }
-      
-      // Add water ripples
-      const ripplePhase = animationPhase * 4;
-      const ripplePositions = [
-        [0, 0], [0, 7], [7, 0], [7, 7] // Corner ripples
-      ];
-      
-      ripplePositions.forEach(([row, col], index) => {
-        const rippleTime = ripplePhase + index * 1.5;
-        if (Math.sin(rippleTime) > 0.8) {
-          basePattern[row][col] = 1;
-        }
-      });
-      
-      return basePattern;
-    };
 
     const drawDotMatrix = (canvas, pattern, animationPhase = 0) => {
       const ctx = canvas.getContext('2d');
@@ -283,9 +382,6 @@
             } else if (currentAnimation === 'heart') {
               // Romantic pulsing for heart with color variation
               pulseScale = 1 + Math.sin(animationPhase * 1.8) * 0.2;
-            } else if (currentAnimation === 'fish') {
-              // Dynamic motion effect for fish
-              pulseScale = 1 + Math.sin(animationPhase * 2.5 + row * 0.5) * 0.15;
             }
             
             ctx.arc(x + dotRadius, y + dotRadius, dotRadius * pulseScale, 0, 2 * Math.PI);
@@ -326,8 +422,6 @@
             toPattern = generateClockPattern(Date.now() * 0.01);
           } else if (toAnimationType === 'heart') {
             toPattern = generateHeartPattern(Date.now() * 0.01);
-          } else if (toAnimationType === 'fish') {
-            toPattern = generateFishPattern(Date.now() * 0.01);
           } else {
             toPattern = patterns[toAnimationType];
           }
@@ -361,8 +455,8 @@
         console.log('💤 Idle timeout reached - switching to random idle animation (from manual reset)');
         setIsIdleMode(true);
         
-        // Randomly choose between clock, heart, and fish animations
-        const idleAnimations = ['clock', 'heart', 'fish'];
+        // Randomly choose between clock and heart animations
+        const idleAnimations = ['clock', 'heart'];
         const randomAnimation = idleAnimations[Math.floor(Math.random() * idleAnimations.length)];
         console.log(`🎲 Randomly selected ${randomAnimation} animation`);
         
@@ -375,7 +469,7 @@
             : patterns[prevAnimation];
           
           animatePatternTransition(currentPattern, randomAnimation, () => {
-            console.log(`🎨 ${randomAnimation === 'clock' ? '🕐' : randomAnimation === 'heart' ? '💖' : '�'} ${randomAnimation} animation started (from manual reset)`);
+            console.log(`🎨 ${randomAnimation === 'clock' ? '🕐' : '💖'} ${randomAnimation} animation started (from manual reset)`);
             setCurrentAnimation(randomAnimation);
           });
           
@@ -413,15 +507,11 @@
           if (prevAnimation !== 'smile') {
             console.log('🎨 Animating transition from', prevAnimation, 'to smile');
             // Smooth transition back to smile
-            const currentPattern = prevAnimation === 'clock' 
-              ? generateClockPattern(Date.now() * 0.01)
-              : prevAnimation === 'heart'
-              ? generateHeartPattern(Date.now() * 0.01)
-              : prevAnimation === 'fish'
-              ? generateFishPattern(Date.now() * 0.01)
-              : patterns[prevAnimation];
-            
-            animatePatternTransition(currentPattern, 'smile', () => {
+          const currentPattern = prevAnimation === 'clock' 
+            ? generateClockPattern(Date.now() * 0.01)
+            : prevAnimation === 'heart'
+            ? generateHeartPattern(Date.now() * 0.01)
+            : patterns[prevAnimation];            animatePatternTransition(currentPattern, 'smile', () => {
               console.log('✅ Animation transition to smile completed');
               setCurrentAnimation('smile');
               startIdleAnimation();
@@ -445,15 +535,85 @@
       resetToSmile();
     }, [resetToSmile]);
 
-    // API Functions
+    // API Functions with multiple fallbacks
     const getRandomQuote = async () => {
-      try {
-        const response = await fetch('https://api.quotable.io/random');
-        const data = await response.json();
-        return `"${data.content}" - ${data.author}`;
-      } catch (error) {
-        return "Here's a quote for you: 'The only way to do great work is to love what you do.' - Steve Jobs";
+      const fallbackQuotes = [
+        "The best time to plant a tree was 20 years ago. The second best time is now. - Chinese Proverb",
+        "Innovation distinguishes between a leader and a follower. - Steve Jobs",
+        "Life is what happens to you while you're busy making other plans. - John Lennon",
+        "The future belongs to those who believe in the beauty of their dreams. - Eleanor Roosevelt",
+        "It is during our darkest moments that we must focus to see the light. - Aristotle",
+        "The way to get started is to quit talking and begin doing. - Walt Disney",
+        "Don't let yesterday take up too much of today. - Will Rogers",
+        "Success is not final, failure is not fatal: it is the courage to continue that counts. - Winston Churchill",
+        "Be yourself; everyone else is already taken. - Oscar Wilde",
+        "In the middle of difficulty lies opportunity. - Albert Einstein",
+        "The only way to do great work is to love what you do. - Steve Jobs",
+        "Believe you can and you're halfway there. - Theodore Roosevelt",
+        "It does not matter how slowly you go as long as you do not stop. - Confucius",
+        "Everything you've ever wanted is on the other side of fear. - George Addair",
+        "Success is not how high you have climbed, but how you make a positive difference to the world. - Roy T. Bennett"
+      ];
+
+      // Try multiple APIs in sequence
+      const apis = [
+        {
+          name: 'Quotable',
+          fetch: async () => {
+            const minLength = 20 + Math.floor(Math.random() * 100);
+            const maxLength = minLength + 50 + Math.floor(Math.random() * 100);
+            const randomSeed = Date.now() + Math.floor(Math.random() * 1000);
+            
+            const response = await fetch(`https://api.quotable.io/random?minLength=${minLength}&maxLength=${maxLength}&_=${randomSeed}`, {
+              timeout: 5000
+            });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            return `"${data.content}" - ${data.author}`;
+          }
+        },
+        {
+          name: 'ZenQuotes',
+          fetch: async () => {
+            const response = await fetch('https://zenquotes.io/api/random', {
+              timeout: 5000
+            });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            return `"${data[0].q}" - ${data[0].a}`;
+          }
+        },
+        {
+          name: 'QuoteGarden',
+          fetch: async () => {
+            const response = await fetch('https://quotegarden.herokuapp.com/api/v3/quotes/random', {
+              timeout: 5000
+            });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            return `"${data.data.quoteText}" - ${data.data.quoteAuthor}`;
+          }
+        }
+      ];
+
+      // Try each API in sequence
+      for (const api of apis) {
+        try {
+          console.log(`Trying ${api.name} API...`);
+          const quote = await api.fetch();
+          console.log(`${api.name} API succeeded`);
+          return quote;
+        } catch (error) {
+          console.warn(`${api.name} API failed:`, error.message);
+        }
       }
+
+      // If all APIs fail, use local fallback
+      console.log('All APIs failed, using local fallback quotes');
+      return fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
     };
 
     const getDadJoke = async () => {
@@ -596,8 +756,6 @@
           currentPattern = generateClockPattern(animationPhase);
         } else if (currentAnimation === 'heart') {
           currentPattern = generateHeartPattern(animationPhase);
-        } else if (currentAnimation === 'fish') {
-          currentPattern = generateFishPattern(animationPhase);
         } else {
           currentPattern = patterns[currentAnimation];
         }
@@ -633,8 +791,8 @@
           console.log('💤 Idle timeout reached - switching to random idle animation');
           setIsIdleMode(true);
           
-          // Randomly choose between clock, heart, and fish animations
-          const idleAnimations = ['clock', 'heart', 'fish'];
+          // Randomly choose between clock and heart animations
+          const idleAnimations = ['clock', 'heart'];
           const randomAnimation = idleAnimations[Math.floor(Math.random() * idleAnimations.length)];
           console.log(`🎲 Randomly selected ${randomAnimation} animation`);
           
@@ -642,7 +800,7 @@
           const currentPattern = patterns['smile']; // Always start from smile when opening
           
           animatePatternTransition(currentPattern, randomAnimation, () => {
-            console.log(`🎨 ${randomAnimation === 'clock' ? '🕐' : randomAnimation === 'heart' ? '💖' : '�'} ${randomAnimation} animation started`);
+            console.log(`🎨 ${randomAnimation === 'clock' ? '🕐' : '💖'} ${randomAnimation} animation started`);
             setCurrentAnimation(randomAnimation);
           });
         }, 3000);
@@ -734,17 +892,29 @@
               timestamp: new Date().toLocaleTimeString()
             }];
           });
+
+          // Automatically speak the bot response
+          setTimeout(() => {
+            speakText(botResponseContent);
+          }, 100); // Small delay to ensure message is rendered
+
         } catch (error) {
           // Handle any errors
+          const errorMessage = '😅 Sorry, I encountered an issue. Please try again!';
           setMessages(prev => {
             const withoutLoading = prev.filter(msg => msg.id !== loadingMessage.id);
             return [...withoutLoading, {
               id: Date.now() + 2,
               type: 'bot',
-              content: '😅 Sorry, I encountered an issue. Please try again!',
+              content: errorMessage,
               timestamp: new Date().toLocaleTimeString()
             }];
           });
+
+          // Speak error message too
+          setTimeout(() => {
+            speakText(errorMessage);
+          }, 100);
         }
         
         setIsLoading(false);
@@ -930,6 +1100,76 @@
               transition: 'border-color 0.3s'
             }
           }),
+          React.createElement('button', {
+            key: 'voice-toggle',
+            onClick: toggleVoiceGender,
+            title: voiceGender === 'female' ? 'Switch to male voice' : 'Switch to female voice',
+            style: {
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              border: 'none',
+              backgroundColor: theme === 'light' ? '#e0e0e0' : '#4a5568',
+              color: theme === 'light' ? '#333' : '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px',
+              marginRight: '8px'
+            }
+          }, voiceGender === 'female' ? '👩' : '👨'),
+          React.createElement('button', {
+            key: 'speaker-toggle',
+            onClick: isSpeaking ? stopSpeaking : () => {},
+            title: isSpeaking ? 'Stop speaking' : 'Text-to-speech enabled',
+            style: {
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              border: 'none',
+              backgroundColor: isSpeaking 
+                ? (theme === 'light' ? '#ff6b6b' : '#e74c3c')
+                : (theme === 'light' ? '#4ecdc4' : '#2ecc71'),
+              color: '#fff',
+              cursor: isSpeaking ? 'pointer' : 'default',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              marginRight: '8px',
+              transform: isSpeaking ? 'scale(1.1)' : 'scale(1)',
+              transition: 'all 0.3s ease'
+            }
+          }, isSpeaking ? '🔇' : '🔊'),
+          React.createElement('button', {
+            key: 'microphone-toggle',
+            onMouseDown: startListening,
+            onMouseUp: stopListening,
+            onMouseLeave: stopListening, // Stop if mouse leaves button
+            onTouchStart: startListening,
+            onTouchEnd: stopListening,
+            title: isListening ? 'Release to stop recording' : 'Hold to speak (Voice-to-text)',
+            style: {
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              border: 'none',
+              backgroundColor: isListening 
+                ? (theme === 'light' ? '#ff6b6b' : '#e74c3c')
+                : (theme === 'light' ? '#4ecdc4' : '#3498db'),
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              marginRight: '8px',
+              transform: isListening ? 'scale(1.1)' : 'scale(1)',
+              transition: 'all 0.3s ease',
+              userSelect: 'none'
+            }
+          }, isListening ? '🔴' : '🎤'),
           React.createElement('button', {
             key: 'send',
             onClick: handleSendMessage,
