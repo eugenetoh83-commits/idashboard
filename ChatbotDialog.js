@@ -1357,8 +1357,208 @@
              `😄 Tell a joke - say "tell me a joke" or just "joke"\n` +
              `💭 Share a quote - say "give me a quote" or just "quote"\n` +
              `🌤️ Get weather - say "weather" or "what's the weather"\n` +
-             `🔊 Test speech - say "test speech" to check if audio is working\n\n` +
+             `🔊 Test speech - say "test speech" to check if audio is working\n` +
+             `📅 Schedule appointment - say "schedule meeting" or "book appointment"\n` +
+             `📋 View appointments - say "show my appointments" or "list appointments"\n` +
+             `❌ Cancel appointment - say "cancel appointment [title]"\n\n` +
              `Just type any of these requests and I'll help you out!`;
+    };
+
+    // Calendar/Appointment functions
+    const getStoredAppointments = () => {
+      const saved = localStorage.getItem('appointments');
+      return saved ? JSON.parse(saved) : [];
+    };
+
+    const saveAppointments = (appointments) => {
+      localStorage.setItem('appointments', JSON.stringify(appointments));
+    };
+
+    const parseDateTime = (input) => {
+      const now = new Date();
+      const lowerInput = input.toLowerCase();
+      
+      // Handle relative dates
+      if (lowerInput.includes('today')) {
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      }
+      if (lowerInput.includes('tomorrow')) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+      }
+      if (lowerInput.includes('next week')) {
+        const nextWeek = new Date(now);
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        return new Date(nextWeek.getFullYear(), nextWeek.getMonth(), nextWeek.getDate());
+      }
+      
+      // Try to parse specific dates
+      const dateRegex = /(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/;
+      const timeRegex = /(\d{1,2}):(\d{2})\s*(am|pm)?/i;
+      
+      const dateMatch = input.match(dateRegex);
+      const timeMatch = input.match(timeRegex);
+      
+      let date = new Date(now);
+      
+      if (dateMatch) {
+        const month = parseInt(dateMatch[1]) - 1; // JavaScript months are 0-indexed
+        const day = parseInt(dateMatch[2]);
+        const year = dateMatch[3] ? parseInt(dateMatch[3]) : now.getFullYear();
+        date = new Date(year, month, day);
+      }
+      
+      if (timeMatch) {
+        let hours = parseInt(timeMatch[1]);
+        const minutes = parseInt(timeMatch[2]);
+        const ampm = timeMatch[3];
+        
+        if (ampm && ampm.toLowerCase() === 'pm' && hours !== 12) {
+          hours += 12;
+        } else if (ampm && ampm.toLowerCase() === 'am' && hours === 12) {
+          hours = 0;
+        }
+        
+        date.setHours(hours, minutes, 0, 0);
+      }
+      
+      return date;
+    };
+
+    const handleAppointmentRequest = (message) => {
+      const lowerMessage = message.toLowerCase();
+      
+      // Extract potential appointment details using simple patterns
+      const titleMatch = message.match(/(?:schedule|book|set up|create)(?:\s+(?:a|an))?\s+(?:appointment|meeting)?\s+(?:for|with|about)?\s*(.+?)(?:\s+(?:on|at|for|tomorrow|today|next week|\d))/i);
+      const timeMatch = message.match(/(?:at|on|for)\s+(.+)/i);
+      
+      // Basic appointment creation
+      const appointments = getStoredAppointments();
+      
+      // Extract title
+      let title = 'New Appointment';
+      if (titleMatch && titleMatch[1]) {
+        title = titleMatch[1].trim();
+      } else if (lowerMessage.includes('doctor')) {
+        title = 'Doctor Appointment';
+      } else if (lowerMessage.includes('dentist')) {
+        title = 'Dentist Appointment';
+      } else if (lowerMessage.includes('meeting')) {
+        title = 'Meeting';
+      } else if (lowerMessage.includes('call')) {
+        title = 'Phone Call';
+      }
+      
+      // Extract date/time
+      let appointmentDate = new Date();
+      if (timeMatch && timeMatch[1]) {
+        appointmentDate = parseDateTime(timeMatch[1]);
+      } else if (lowerMessage.includes('tomorrow')) {
+        appointmentDate = parseDateTime('tomorrow');
+      } else if (lowerMessage.includes('next week')) {
+        appointmentDate = parseDateTime('next week');
+      } else {
+        // Default to tomorrow at 10 AM
+        appointmentDate = parseDateTime('tomorrow');
+        appointmentDate.setHours(10, 0, 0, 0);
+      }
+      
+      // Create new appointment
+      const newAppointment = {
+        id: Date.now(),
+        title: title,
+        start: appointmentDate.toISOString(),
+        end: new Date(appointmentDate.getTime() + 60 * 60 * 1000).toISOString(), // 1 hour duration
+        allDay: false
+      };
+      
+      // Save to localStorage
+      const updatedAppointments = [...appointments, newAppointment];
+      saveAppointments(updatedAppointments);
+      
+      const formattedDate = appointmentDate.toLocaleDateString();
+      const formattedTime = appointmentDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      
+      return `📅 Appointment scheduled successfully!\n\n` +
+             `📋 Title: ${title}\n` +
+             `📅 Date: ${formattedDate}\n` +
+             `🕐 Time: ${formattedTime}\n\n` +
+             `Your appointment has been added to your calendar. You can view all appointments by saying "show my appointments".`;
+    };
+
+    const handleViewAppointments = () => {
+      const appointments = getStoredAppointments();
+      
+      if (appointments.length === 0) {
+        return `📅 You have no scheduled appointments.\n\nTo schedule an appointment, say something like:\n• "Schedule a doctor appointment tomorrow at 2 PM"\n• "Book a meeting for next week"\n• "Set up a dentist appointment"`;
+      }
+      
+      // Sort appointments by date
+      const sortedAppointments = appointments.sort((a, b) => new Date(a.start) - new Date(b.start));
+      
+      let response = `📅 Your scheduled appointments:\n\n`;
+      
+      sortedAppointments.forEach((appointment, index) => {
+        const startDate = new Date(appointment.start);
+        const formattedDate = startDate.toLocaleDateString();
+        const formattedTime = startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        response += `${index + 1}. 📋 ${appointment.title}\n`;
+        response += `   📅 ${formattedDate} at ${formattedTime}\n\n`;
+      });
+      
+      response += `To cancel an appointment, say "cancel appointment [title]" or click on it in the calendar.`;
+      
+      return response;
+    };
+
+    const handleCancelAppointment = (message) => {
+      const appointments = getStoredAppointments();
+      
+      if (appointments.length === 0) {
+        return `📅 You have no appointments to cancel.`;
+      }
+      
+      // Try to extract appointment title from message
+      const cancelMatch = message.match(/cancel\s+appointment\s+(.+)/i);
+      
+      if (!cancelMatch || !cancelMatch[1]) {
+        // Show list of appointments to cancel
+        let response = `📅 Which appointment would you like to cancel?\n\n`;
+        appointments.forEach((appointment, index) => {
+          const startDate = new Date(appointment.start);
+          const formattedDate = startDate.toLocaleDateString();
+          response += `${index + 1}. ${appointment.title} (${formattedDate})\n`;
+        });
+        response += `\nSay "cancel appointment [title]" to cancel a specific appointment.`;
+        return response;
+      }
+      
+      const titleToCancel = cancelMatch[1].trim().toLowerCase();
+      
+      // Find matching appointment
+      const appointmentIndex = appointments.findIndex(apt => 
+        apt.title.toLowerCase().includes(titleToCancel)
+      );
+      
+      if (appointmentIndex === -1) {
+        return `📅 Could not find an appointment matching "${cancelMatch[1]}". Please check the appointment title and try again.`;
+      }
+      
+      // Remove the appointment
+      const cancelledAppointment = appointments[appointmentIndex];
+      const updatedAppointments = appointments.filter((_, index) => index !== appointmentIndex);
+      saveAppointments(updatedAppointments);
+      
+      const startDate = new Date(cancelledAppointment.start);
+      const formattedDate = startDate.toLocaleDateString();
+      const formattedTime = startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      
+      return `❌ Appointment cancelled successfully!\n\n` +
+             `📋 Cancelled: ${cancelledAppointment.title}\n` +
+             `📅 Was scheduled for: ${formattedDate} at ${formattedTime}\n\n` +
+             `The appointment has been removed from your calendar.`;
     };
 
     const processUserMessage = async (message) => {
@@ -1369,6 +1569,21 @@
         const testMessage = 'This is a speech test. If you can hear this, text to speech is working correctly.';
         speakText(testMessage);
         return `🔊 Speech test initiated. You should hear: "${testMessage}"`;
+      }
+      
+      // Appointment scheduling requests
+      if (lowerMessage.includes('schedule') || lowerMessage.includes('appointment') || lowerMessage.includes('meeting') || lowerMessage.includes('book') || lowerMessage.includes('calendar')) {
+        return handleAppointmentRequest(message);
+      }
+      
+      // View calendar/appointments
+      if (lowerMessage.includes('show appointments') || lowerMessage.includes('list appointments') || lowerMessage.includes('my appointments') || lowerMessage.includes('view calendar')) {
+        return handleViewAppointments();
+      }
+      
+      // Cancel/delete appointments
+      if (lowerMessage.includes('cancel appointment') || lowerMessage.includes('delete appointment') || lowerMessage.includes('remove appointment')) {
+        return handleCancelAppointment(message);
       }
       
       // Quote requests
