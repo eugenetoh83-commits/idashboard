@@ -57,6 +57,13 @@
     const speakText = (text) => {
       if (!speechSynthesis) {
         console.warn('Speech synthesis not supported');
+        const errorMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🔊 Text-to-speech is not supported on this device/browser.',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
         return;
       }
 
@@ -69,54 +76,165 @@
         .replace(/\n/g, ' ') // Replace newlines with spaces
         .trim();
 
-      if (!cleanText) return;
-
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      
-      // Configure voice based on gender preference
-      const voices = speechSynthesis.getVoices();
-      const femaleVoices = voices.filter(voice => 
-        voice.name.toLowerCase().includes('female') || 
-        voice.name.toLowerCase().includes('woman') ||
-        voice.name.toLowerCase().includes('zira') ||
-        voice.name.toLowerCase().includes('susan')
-      );
-      const maleVoices = voices.filter(voice => 
-        voice.name.toLowerCase().includes('male') || 
-        voice.name.toLowerCase().includes('man') ||
-        voice.name.toLowerCase().includes('david') ||
-        voice.name.toLowerCase().includes('mark')
-      );
-
-      if (voiceGender === 'female' && femaleVoices.length > 0) {
-        utterance.voice = femaleVoices[0];
-      } else if (voiceGender === 'male' && maleVoices.length > 0) {
-        utterance.voice = maleVoices[0];
+      if (!cleanText) {
+        console.warn('No text to speak after cleaning');
+        return;
       }
 
-      // Voice settings
-      utterance.rate = 0.9;
-      utterance.pitch = voiceGender === 'female' ? 1.1 : 0.9;
-      utterance.volume = 0.8;
+      try {
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        
+        // Configure voice based on gender preference
+        const voices = speechSynthesis.getVoices();
+        console.log('🔊 Available voices:', voices.length);
+        
+        if (voices.length === 0) {
+          console.warn('No voices available, speech may not work');
+          const errorMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: '🔊 No speech voices available. Try refreshing the page or check your device audio settings.',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, errorMessage]);
+          return;
+        }
+        
+        const femaleVoices = voices.filter(voice => 
+          voice.name.toLowerCase().includes('female') || 
+          voice.name.toLowerCase().includes('woman') ||
+          voice.name.toLowerCase().includes('zira') ||
+          voice.name.toLowerCase().includes('susan')
+        );
+        const maleVoices = voices.filter(voice => 
+          voice.name.toLowerCase().includes('male') || 
+          voice.name.toLowerCase().includes('man') ||
+          voice.name.toLowerCase().includes('david') ||
+          voice.name.toLowerCase().includes('mark')
+        );
 
-      // Event handlers
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        console.log('🔊 Started speaking:', cleanText.substring(0, 50) + '...');
-      };
+        if (voiceGender === 'female' && femaleVoices.length > 0) {
+          utterance.voice = femaleVoices[0];
+          console.log('🔊 Using female voice:', femaleVoices[0].name);
+        } else if (voiceGender === 'male' && maleVoices.length > 0) {
+          utterance.voice = maleVoices[0];
+          console.log('🔊 Using male voice:', maleVoices[0].name);
+        } else {
+          // Use default voice
+          utterance.voice = voices[0];
+          console.log('🔊 Using default voice:', voices[0].name);
+        }
 
-      utterance.onend = () => {
+        // Voice settings
+        utterance.rate = 0.9;
+        utterance.pitch = voiceGender === 'female' ? 1.1 : 0.9;
+        utterance.volume = 0.8;
+
+        // Event handlers
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+          console.log('🔊 Started speaking:', cleanText.substring(0, 50) + '...');
+        };
+
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          console.log('🔇 Finished speaking');
+        };
+
+        utterance.onerror = (event) => {
+          setIsSpeaking(false);
+          console.error('🔊 Speech synthesis error:', event.error);
+          
+          let errorMsg = '';
+          switch(event.error) {
+            case 'network':
+              errorMsg = '🔊 Network error during speech. Check your internet connection.';
+              break;
+            case 'synthesis-unavailable':
+              errorMsg = '🔊 Speech synthesis unavailable. Try refreshing the page.';
+              break;
+            case 'synthesis-failed':
+              errorMsg = '🔊 Speech synthesis failed. The text may be too long or contain unsupported characters.';
+              break;
+            case 'audio-hardware':
+              errorMsg = '🔊 Audio hardware error. Check your speakers/headphones.';
+              break;
+            case 'audio-busy':
+              errorMsg = '🔊 Audio is busy. Close other apps using audio and try again.';
+              break;
+            case 'not-allowed':
+              errorMsg = '🔊 Speech not allowed. Check browser audio permissions.';
+              break;
+            case 'interrupted':
+              errorMsg = '🔊 Speech was interrupted.';
+              break;
+            default:
+              errorMsg = `🔊 Speech error: ${event.error}. Try refreshing the page.`;
+          }
+          
+          const errorMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content: errorMsg,
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, errorMessage]);
+        };
+
+        // Add timeout to detect if speech doesn't start
+        const speechTimeout = setTimeout(() => {
+          if (!isSpeaking) {
+            console.warn('🔊 Speech timeout - speech may not have started');
+            const timeoutMessage = {
+              id: Date.now() + Math.random(),
+              type: 'bot',
+              content: '🔊 Speech timed out. Audio may be disabled or unavailable. Check your device volume and audio settings.',
+              timestamp: new Date().toLocaleTimeString()
+            };
+            setMessages(prev => [...prev, timeoutMessage]);
+            setIsSpeaking(false);
+          }
+        }, 3000); // 3 second timeout
+
+        // Clear timeout when speech starts or ends
+        const originalOnStart = utterance.onstart;
+        const originalOnEnd = utterance.onend;
+        
+        utterance.onstart = () => {
+          clearTimeout(speechTimeout);
+          if (originalOnStart) originalOnStart();
+        };
+        
+        utterance.onend = () => {
+          clearTimeout(speechTimeout);
+          if (originalOnEnd) originalOnEnd();
+        };
+
+        // Speak the text
+        console.log('🔊 Attempting to speak:', cleanText.substring(0, 100) + '...');
+        speechSynthesis.speak(utterance);
+        
+        // Additional check for common issues
+        setTimeout(() => {
+          if (speechSynthesis.speaking) {
+            console.log('🔊 Speech synthesis is active');
+          } else {
+            console.warn('🔊 Speech synthesis is not active after speak() call');
+          }
+        }, 100);
+        
+      } catch (error) {
+        console.error('🔊 Error setting up speech synthesis:', error);
         setIsSpeaking(false);
-        console.log('🔇 Finished speaking');
-      };
-
-      utterance.onerror = (event) => {
-        setIsSpeaking(false);
-        console.error('Speech synthesis error:', event.error);
-      };
-
-      // Speak the text
-      speechSynthesis.speak(utterance);
+        
+        const errorMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: `🔊 Failed to initialize speech: ${error.message}. Try refreshing the page.`,
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     };
 
     const stopSpeaking = () => {
@@ -132,7 +250,29 @@
         // Voices might not be loaded immediately, so we wait for them
         const loadVoices = () => {
           const voices = speechSynthesis.getVoices();
-          console.log('Available voices:', voices.map(v => v.name));
+          console.log('🔊 Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+          
+          if (voices.length === 0) {
+            console.warn('🔊 No voices loaded yet, will retry...');
+            // Try to trigger voice loading
+            setTimeout(() => {
+              const testVoices = speechSynthesis.getVoices();
+              if (testVoices.length === 0) {
+                console.error('🔊 Still no voices available after retry');
+                const errorMessage = {
+                  id: Date.now() + Math.random(),
+                  type: 'bot',
+                  content: '🔊 Warning: No speech voices detected. Text-to-speech may not work. Try refreshing the page or check your device audio settings.',
+                  timestamp: new Date().toLocaleTimeString()
+                };
+                setMessages(prev => [...prev, errorMessage]);
+              } else {
+                console.log('🔊 Voices loaded after retry:', testVoices.length);
+              }
+            }, 2000);
+          } else {
+            console.log('🔊 Speech synthesis ready with', voices.length, 'voices');
+          }
         };
         
         // Load voices immediately if available
@@ -141,9 +281,34 @@
         // Also listen for voices changed event
         speechSynthesis.onvoiceschanged = loadVoices;
         
+        // Add a timeout to check if voices are still not loaded
+        const voiceCheckTimeout = setTimeout(() => {
+          const voices = speechSynthesis.getVoices();
+          if (voices.length === 0) {
+            console.warn('🔊 No voices loaded after 5 seconds');
+            const warningMessage = {
+              id: Date.now() + Math.random(),
+              type: 'bot',
+              content: '🔊 Speech voices are taking longer than expected to load. Text-to-speech may be limited.',
+              timestamp: new Date().toLocaleTimeString()
+            };
+            setMessages(prev => [...prev, warningMessage]);
+          }
+        }, 5000);
+        
         return () => {
           speechSynthesis.onvoiceschanged = null;
+          clearTimeout(voiceCheckTimeout);
         };
+      } else {
+        // Speech synthesis not supported
+        const errorMessage = {
+          id: Date.now() + Math.random(),
+          type: 'bot',
+          content: '🔊 Text-to-speech is not supported on this browser/device.',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
       }
     }, []);
 
@@ -344,7 +509,18 @@
                 // Auto-speak the response if not currently speaking
                 setIsSpeaking(currentIsSpeaking => {
                   if (!currentIsSpeaking) {
-                    speakText(botResponse);
+                    try {
+                      speakText(botResponse);
+                    } catch (error) {
+                      console.error('🔊 Error in auto-speak:', error);
+                      const speechErrorMessage = {
+                        id: Date.now() + Math.random(),
+                        type: 'bot',
+                        content: '🔊 Could not speak the response automatically. You can try saying "test speech" to check your audio.',
+                        timestamp: new Date().toLocaleTimeString()
+                      };
+                      setMessages(prev => [...prev, speechErrorMessage]);
+                    }
                   }
                   return currentIsSpeaking;
                 });
@@ -1180,12 +1356,20 @@
              `🎮 Play a game - say "rock paper scissors" or "play game"\n` +
              `😄 Tell a joke - say "tell me a joke" or just "joke"\n` +
              `💭 Share a quote - say "give me a quote" or just "quote"\n` +
-             `🌤️ Get weather - say "weather" or "what's the weather"\n\n` +
+             `🌤️ Get weather - say "weather" or "what's the weather"\n` +
+             `🔊 Test speech - say "test speech" to check if audio is working\n\n` +
              `Just type any of these requests and I'll help you out!`;
     };
 
     const processUserMessage = async (message) => {
       const lowerMessage = message.toLowerCase().trim();
+      
+      // Test speech functionality
+      if (lowerMessage.includes('test speech') || lowerMessage.includes('test voice') || lowerMessage.includes('speech test')) {
+        const testMessage = 'This is a speech test. If you can hear this, text to speech is working correctly.';
+        speakText(testMessage);
+        return `🔊 Speech test initiated. You should hear: "${testMessage}"`;
+      }
       
       // Quote requests
       if (lowerMessage.includes('quote') || lowerMessage.includes('inspire') || lowerMessage.includes('wisdom')) {
