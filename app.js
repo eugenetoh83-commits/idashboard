@@ -36,7 +36,7 @@ function getResponsiveNodeSize(isHovered) {
   return isHovered ? base * 1.35 : base;
 }
 
-function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick, onApptClick }) {
+function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick, onApptClick, onProjectManagerClick }) {
   const cyRef = React.useRef(null);
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const [nodeScreenPositions, setNodeScreenPositions] = React.useState([]);
@@ -428,6 +428,11 @@ function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick, 
                 if (node.label === 'APPT') {
                   onApptClick();
                 }
+                // Handle SHARE node click - toggle ProjectManager
+                if (node.label === 'SHARE') {
+                  console.log('[SHARE] Button clicked, attempting to open ProjectManager');
+                  onProjectManagerClick();
+                }
               }}
               style={{
                 position: 'absolute',
@@ -606,6 +611,9 @@ function App() {
   // Add AppointmentDialog state
   const [isAppointmentDialogOpen, setIsAppointmentDialogOpen] = React.useState(false);
 
+  // Add ProjectManager state
+  const [isProjectManagerOpen, setIsProjectManagerOpen] = React.useState(false);
+
   React.useEffect(() => {
     // Set body class for theme
     console.log('[APP] Setting body classes for theme:', theme);
@@ -627,6 +635,31 @@ function App() {
     <div>
       <Dashboard 
         backgroundType={backgroundType} 
+        onProjectManagerClick={() => {
+          console.log('[PROJECT] ProjectManager click handler called, current state:', {
+            isProjectManagerOpen,
+            isInfoDialogOpen,
+            isChatbotDialogOpen,
+            isLabviewDialogOpen,
+            isAppointmentDialogOpen
+          });
+          // Close other dialogs if open, then toggle project manager
+          if (isInfoDialogOpen) {
+            setIsInfoDialogOpen(false);
+            setTimeout(() => setIsProjectManagerOpen(!isProjectManagerOpen), 400);
+          } else if (isChatbotDialogOpen) {
+            setIsChatbotDialogOpen(false);
+            setTimeout(() => setIsProjectManagerOpen(!isProjectManagerOpen), 400);
+          } else if (isLabviewDialogOpen) {
+            setIsLabviewDialogOpen(false);
+            setTimeout(() => setIsProjectManagerOpen(!isProjectManagerOpen), 400);
+          } else if (isAppointmentDialogOpen) {
+            setIsAppointmentDialogOpen(false);
+            setTimeout(() => setIsProjectManagerOpen(!isProjectManagerOpen), 400);
+          } else {
+            setIsProjectManagerOpen(!isProjectManagerOpen);
+          }
+        }}
         onSystemClick={() => {
           // Close other dialogs if open, then toggle info dialog
           if (isChatbotDialogOpen) {
@@ -728,6 +761,15 @@ function App() {
       {window.AppointmentDialog && React.createElement(window.AppointmentDialog, {
         isOpen: isAppointmentDialogOpen,
         onClose: () => setIsAppointmentDialogOpen(false),
+        theme: theme
+      })}
+      {console.log('[PROJECT] Rendering ProjectManager:', {
+        exists: !!window.ProjectManager,
+        isOpen: isProjectManagerOpen
+      })}
+      {window.ProjectManager && React.createElement(window.ProjectManager, {
+        isOpen: isProjectManagerOpen,
+        onClose: () => setIsProjectManagerOpen(false),
         theme: theme
       })}
     </div>
