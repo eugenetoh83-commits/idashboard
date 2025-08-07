@@ -2,7 +2,7 @@
 
 (function() {
   function StaggeredGridBackground(props) {
-    const cellSize = 30;
+    const cellSize = 20;
     const [dimensions, setDimensions] = React.useState({
       width: window.innerWidth,
       height: window.innerHeight

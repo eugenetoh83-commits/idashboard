@@ -445,7 +445,7 @@ function Dashboard({ backgroundType, onSystemClick, onStatusClick, onHomeClick, 
                 alignItems: 'center',
                 pointerEvents: 'auto', // Allow mouse events
                 zIndex: 3,
-                cursor: (node.label === 'SYSTEM' || node.label === 'CHATBOT' || node.label === 'HOME' || node.label === 'APPT') ? 'pointer' : 'default',
+                cursor: (node.label === 'SYSTEM' || node.label === 'CHATBOT' || node.label === 'HOME' || node.label === 'APPT' || node.label === 'SHARE') ? 'pointer' : 'default',
               }}
             >
               {/* Animated border overlay */}
@@ -656,8 +656,12 @@ function App() {
           } else if (isAppointmentDialogOpen) {
             setIsAppointmentDialogOpen(false);
             setTimeout(() => setIsProjectManagerOpen(!isProjectManagerOpen), 400);
+          } else if (isProjectManagerOpen) {
+            // If ProjectManager is already open, close it
+            setIsProjectManagerOpen(false);
           } else {
-            setIsProjectManagerOpen(!isProjectManagerOpen);
+            // If no dialogs are open, open ProjectManager
+            setIsProjectManagerOpen(true);
           }
         }}
         onSystemClick={() => {
